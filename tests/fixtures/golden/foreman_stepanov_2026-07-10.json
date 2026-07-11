@@ -1,0 +1,16 @@
+{
+  "date": "2026-07-10",
+  "object_name": "РП-7 Каменка",
+  "foreman": "Степанов",
+  "works": [
+    {"name": "Копка траншеи КЛ-10 кВ фидер 14", "volume": 50.0, "unit": "м", "people_count": 4},
+    {"name": "Укладка кабеля АПвПу-10 3х120 в траншею", "volume": 50.0, "unit": "м", "people_count": null},
+    {"name": "Засыпка траншеи песком с послойной трамбовкой", "volume": 30.0, "unit": "м", "people_count": null}
+  ],
+  "materials": [
+    {"name": "Кабель АПвПу-10 3х120", "qty": 50.0, "unit": "м"},
+    {"name": "Песок", "qty": 10.0, "unit": "м3"}
+  ],
+  "notes": null,
+  "weather": "ясно, +22"
+}
