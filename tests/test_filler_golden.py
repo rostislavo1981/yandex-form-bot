@@ -1,4 +1,7 @@
-"""Golden test: for each fixture, the fill_form call sequence must match a saved snapshot."""
+"""Golden test: for each fixture, the fill_form call sequence must match a saved snapshot.
+
+To regenerate:  .venv/bin/python scripts/_gen_golden_fill_sequences.py
+"""
 from __future__ import annotations
 
 import json
@@ -49,42 +52,3 @@ async def test_fill_sequence_matches_golden(name: str, tmp_path: Path) -> None:
 
     expected = _golden_sequence(name)
     assert actual == expected, f"fill sequence drift for {name}"
-
-
-def test_write_golden_stepanov(tmp_path: Path) -> None:
-    """Generator: produce the golden sequence file. Run on demand with --update-golden."""
-    import sys
-
-    if "--update-golden" not in sys.argv:
-        pytest.skip("run with --update-golden to regenerate")
-    sys.argv.remove("--update-golden")
-
-    for name in [
-        "foreman_stepanov_2026-07-10",
-        "foreman_kaznadeev_2026-07-10",
-        "foreman_trofimov_2026-07-10",
-    ]:
-        report = _golden_report(name)
-        fake = FakePlaywrightClient()
-        asyncio_run = __import__("asyncio").run
-        asyncio_run(
-            fill_form(
-                report,
-                "https://forms.yandex.ru/x",
-                fake,
-                screenshot_dir=tmp_path,
-                screenshot_name=f"{name}.png",
-            )
-        )
-        actual = []
-        for r in fake.records:
-            entry: dict = {"method": r.method}
-            if r.method == "fill":
-                entry["selector"] = r.args[0]
-                entry["value"] = r.args[1]
-            elif r.method == "goto":
-                entry["url"] = r.args[0]
-            actual.append(entry)
-        out_path = GOLDEN_DIR / f"{name}.fill_sequence.json"
-        out_path.write_text(json.dumps(actual, ensure_ascii=False, indent=2), encoding="utf-8")
-        print(f"wrote {out_path}")
