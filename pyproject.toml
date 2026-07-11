@@ -1,0 +1,87 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "yandex-form-bot"
+version = "0.1.0"
+description = "MAX bot + YandexGPT + Yandex Forms for daily foreman reports"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.12"
+authors = [{ name = "Rostislav" }]
+keywords = ["max", "telegram", "yandexgpt", "yandex-forms", "playwright", "construction"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Office/Business :: Financial",
+]
+dependencies = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.27",
+    "httpx>=0.27",
+    "pydantic>=2.6",
+    "pydantic-settings>=2.2",
+    "python-dotenv>=1.0",
+    "openpyxl>=3.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.3",
+    "mypy>=1.8",
+]
+playwright = [
+    "playwright>=1.42",
+]
+bot = [
+    # MAX Bot API: long polling client (no SDK needed, we use httpx directly)
+]
+
+[project.scripts]
+yfb-parse = "backend.cli.parse:main"
+yfb-fill = "backend.cli.fill_form:main"
+yfb-summary = "backend.cli.build_summary:main"
+yfb-pipeline = "backend.cli.run_pipeline:main"
+yfb-bot = "backend.cli.run_bot:main"
+yfb-api = "backend.cli.run_api:main"
+
+[tool.setuptools.packages.find]
+include = ["backend*"]
+
+[tool.setuptools.package-data]
+backend = ["py.typed"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = [".venv", "data", ".hermes"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "UP", "B", "SIM"]
+ignore = [
+    "E501",
+    "B008",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["backend"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["B011", "SIM117"]
+"backend/cli/**" = ["B008"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+asyncio_mode = "auto"
+addopts = "-ra --strict-markers"
+markers = [
+    "integration: requires real network/credentials",
+    "slow: takes >5s",
+]
