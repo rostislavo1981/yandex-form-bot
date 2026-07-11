@@ -47,8 +47,10 @@ def test_verify_init_data_valid() -> None:
 
 
 def test_verify_init_data_bad_signature() -> None:
+    from fastapi import HTTPException
+
     init = _make_init_data() + "x"  # corrupt
-    with pytest.raises(Exception):  # HTTPException
+    with pytest.raises(HTTPException):
         verify_init_data(init, BOT_TOKEN)
 
 
