@@ -95,9 +95,21 @@ class Report(BaseModel):
                 raise ValueError(f"Invalid date string: {v!r}") from e
         raise ValueError(f"date must be date|datetime|str, got {type(v).__name__}")
 
+    @model_validator(mode="before")
+    @classmethod
+    def _filter_blank_machines(cls, data: Any) -> Any:
+        """Pre-validate: drop machines with blank machine_type before per-item validation."""
+        if isinstance(data, dict) and "machines" in data:
+            data = dict(data)
+            data["machines"] = [
+                m for m in data["machines"]
+                if isinstance(m, dict) and m.get("machine_type", "").strip()
+            ]
+        return data
+
     @model_validator(mode="after")
     def _strip_empties(self) -> Report:
-        # Drop machines with empty machine_type (parser tolerance)
+        # Drop machines with empty machine_type after strip (defense in depth)
         self.machines = [m for m in self.machines if m.machine_type]
         return self
 
