@@ -1,7 +1,21 @@
-"""Pydantic schemas for the Report domain.
+"""Pydantic schemas for the Report domain — REAL Yandex Form fields.
 
-A Report is a structured representation of one foreman's daily text report.
-It's the contract between parser (YandexGPT) and downstream (form filler, disk, excel).
+The form «Ежедневный отчёт по технике, механизмам и персоналу» (id 6a51e57af47e73a0eca7b48c)
+contains these fields:
+  - date              (Дата отчёта)
+  - foreman           (Прораб/Ответственный/Подрядчик) — dropdown
+  - object_name       (Объект)                            — dropdown
+  - comment           (Коментарий)                        — long text
+  - machines: list    (Техника/механизмы — серия):
+      - machine_type  (Выберите технику) — dropdown
+      - unit          (Единица измерения) — short text
+      - quantity      (Количество) — integer
+  - waste_volume      (Вывоз грунта и строительных отходов, м³) — integer
+  - personnel:
+      - itr           (ИТР)
+      - opr_staff     (ОПР штатные)
+      - opr_external  (ОПР внештатные)
+  - final_comment     (Комментарии к отчёту) — long text
 """
 from __future__ import annotations
 
@@ -12,55 +26,53 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
-class WorkItem(BaseModel):
-    """One line item: e.g. 'копка траншеи — 50 м'.
-
-    Empty `name` is allowed here so the parser doesn't crash on GPT junk.
-    They are filtered out at the Report level via _strip_empties.
-    """
+class MachineItem(BaseModel):
+    """One line of equipment/machinery used on site today."""
 
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
-    name: str = Field(..., max_length=200)
-    volume: float = Field(..., ge=0)
-    unit: str = Field(..., min_length=1, max_length=20)
-    people_count: int | None = Field(default=None, ge=0, le=1000)
+    machine_type: str = Field(..., max_length=200)  # e.g. "Экскаватор JCB 3CX"
+    unit: str = Field(..., min_length=1, max_length=20)  # "час", "смена", "м³"
+    quantity: float = Field(..., ge=0)  # integer normally, but float for safety
+
+    @field_validator("machine_type")
+    @classmethod
+    def _non_blank(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("machine_type must not be blank")
+        return v
 
     def to_form_dict(self) -> dict[str, Any]:
-        """Flatten for form filling: {name, volume, unit, people_count}."""
-        return {
-            "name": self.name,
-            "volume": self.volume,
-            "unit": self.unit,
-            "people_count": self.people_count,
-        }
+        return {"machine_type": self.machine_type, "unit": self.unit, "quantity": self.quantity}
 
 
-class Material(BaseModel):
-    """One material line: e.g. 'кабель АПвПу-10 3x120 — 200 м'."""
+class Personnel(BaseModel):
+    """Personnel counts on site today."""
 
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
-    name: str = Field(..., min_length=1, max_length=200)
-    qty: float = Field(..., ge=0)
-    unit: str = Field(..., min_length=1, max_length=20)
+    itr: int = Field(default=0, ge=0, le=1000)  # ИТР (инженерно-технические работники)
+    opr_staff: int = Field(default=0, ge=0, le=1000)  # ОПР штатные
+    opr_external: int = Field(default=0, ge=0, le=1000)  # ОПР внештатные
+
+    @property
+    def total(self) -> int:
+        return self.itr + self.opr_staff + self.opr_external
 
 
 class Report(BaseModel):
-    """Top-level structured foreman report for a single day.
-
-    field_validator on `date` accepts both date and datetime ISO strings
-    (YandexGPT sometimes returns datetimes with time component).
-    """
+    """Structured foreman daily report — REAL form schema."""
 
     model_config = ConfigDict(extra="ignore", str_strip_whitespace=True)
 
     date: _date
+    foreman: str = Field(..., min_length=1, max_length=200)
     object_name: str = Field(..., min_length=1, max_length=300)
-    foreman: str = Field(..., min_length=1, max_length=100)
-    works: list[WorkItem] = Field(default_factory=list, max_length=50)
-    materials: list[Material] = Field(default_factory=list, max_length=50)
-    notes: str | None = Field(default=None, max_length=2000)
+    comment: str | None = Field(default=None, max_length=2000)
+    machines: list[MachineItem] = Field(default_factory=list, max_length=20)
+    waste_volume: float = Field(default=0.0, ge=0)  # м³
+    personnel: Personnel = Field(default_factory=Personnel)
+    final_comment: str | None = Field(default=None, max_length=2000)
     weather: str | None = Field(default=None, max_length=200)
 
     @field_validator("date", mode="before")
@@ -73,7 +85,6 @@ class Report(BaseModel):
             return v.date()
         if isinstance(v, str):
             s = v.strip()
-            # Try date first, then datetime
             try:
                 return _date.fromisoformat(s)
             except ValueError:
@@ -86,37 +97,57 @@ class Report(BaseModel):
 
     @model_validator(mode="after")
     def _strip_empties(self) -> Report:
-        # Drop works/materials with empty names after strip
-        self.works = [w for w in self.works if w.name]
-        self.materials = [m for m in self.materials if m.name]
+        # Drop machines with empty machine_type (parser tolerance)
+        self.machines = [m for m in self.machines if m.machine_type]
         return self
 
     def to_form_payload(self) -> dict[str, Any]:
-        """Flatten to {date, object_name, foreman, work_1_*, work_2_*, ...} for MVP form.
+        """Flatten to the actual 12 form fields.
 
-        MVP form has slots for 2 works. Excess works are joined into notes.
+        Real form structure:
+          - 1 date field
+          - 3 dropdowns: foreman, object, plus dropdown for first machine
+          - 1 long text: comment
+          - 3 machine subfields (x N machines, but MVP form has 1 series slot)
+          - 1 integer: waste_volume
+          - 3 personnel integers
+          - 1 long text: final_comment
+
+        MVP form has 1 series slot (the «Серия вопросов Техника/механизмы»).
+        Excess machines are appended to the comment in a structured form.
         """
         payload: dict[str, Any] = {
             "date": self.date.isoformat(),
-            "object_name": self.object_name,
             "foreman": self.foreman,
-            "notes": self.notes or "",
+            "object": self.object_name,
+            "comment": self.comment or "",
         }
-        for i, work in enumerate(self.works[:2], start=1):
-            payload[f"work_{i}_name"] = work.name
-            payload[f"work_{i}_volume"] = work.volume
-            payload[f"work_{i}_unit"] = work.unit
-            payload[f"work_{i}_people"] = work.people_count
-        # If only 1 work, leave work_2 empty rather than echoing
-        if len(self.works) < 2:
-            payload.setdefault("work_2_name", "")
-            payload.setdefault("work_2_volume", 0.0)
-            payload.setdefault("work_2_unit", "")
-            payload.setdefault("work_2_people", None)
-        if len(self.works) > 2:
-            extra = "; ".join(
-                # Format volume without trailing .0 for whole numbers
-                f"{w.name} {w.volume:g} {w.unit}" for w in self.works[2:]
+
+        # First machine goes into the form's 1 series slot
+        if self.machines:
+            m = self.machines[0]
+            payload["machine_type"] = m.machine_type
+            payload["machine_unit"] = m.unit
+            payload["machine_quantity"] = m.quantity
+        else:
+            payload["machine_type"] = ""
+            payload["machine_unit"] = "час"
+            payload["machine_quantity"] = 0
+
+        payload["waste_volume"] = self.waste_volume
+        payload["itr"] = self.personnel.itr
+        payload["opr_staff"] = self.personnel.opr_staff
+        payload["opr_external"] = self.personnel.opr_external
+        payload["final_comment"] = self.final_comment or ""
+
+        # Excess machines -> packed into comment (only if there are >1)
+        if len(self.machines) > 1:
+            extras = "; ".join(
+                f"{m.machine_type} {m.quantity:g} {m.unit}" for m in self.machines[1:]
             )
-            payload["notes"] = (payload["notes"] + " | доп. работы: " + extra).strip(" |")
+            existing = payload["comment"]
+            payload["comment"] = (
+                f"{existing} | доп. техника: {extras}" if existing else f"доп. техника: {extras}"
+            ).strip(" |")
+
         return payload
