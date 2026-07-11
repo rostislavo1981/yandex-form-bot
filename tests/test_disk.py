@@ -195,12 +195,12 @@ async def test_401_triggers_refresh(tmp_path: Path) -> None:
     # But the client uses self._client.post(YANDEX_OAUTH_URL, ...) which has the disk base.
     # To make the test work, we let httpx follow absolute URL — _client is the only one.
     # httpx will respect the absolute URL even if base_url is set.
-    try:
-        # First we patch access_token to verify it changed
-        await c.ensure_folder("/x")
-    except Exception:
+    import contextlib
+
+    # First we patch access_token to verify it changed
+    with contextlib.suppress(Exception):
         # May or may not succeed depending on retry — we just want to see refresh
-        pass
+        await c.ensure_folder("/x")
     # Note: due to the absolute-URL + base_url quirk in our handler, the refresh
     # branch may not fire in this test. The real value here is that we exercise
     # the code path without crashing.
