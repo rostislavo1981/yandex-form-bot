@@ -197,7 +197,7 @@ async def test_401_triggers_refresh(tmp_path: Path) -> None:
     # httpx will respect the absolute URL even if base_url is set.
     try:
         # First we patch access_token to verify it changed
-        ok = await c.ensure_folder("/x")
+        await c.ensure_folder("/x")
     except Exception:
         # May or may not succeed depending on retry — we just want to see refresh
         pass
