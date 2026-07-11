@@ -1,141 +1,136 @@
 # Yandex Form Bot
 
-MAX-бот + YandexGPT + Яндекс Формы для ежедневных отчётов прорабов.
+MAX-бот + YandexGPT + Яндекс.Формы для ежедневных отчётов прорабов.
 
 ## Назначение
 
-Прораб пишет в MAX свободным текстом отчёт о выполненных работах. Бот:
-1. Парсит текст через **YandexGPT** в структурированный `Report` (JSON)
-2. Заполняет **Яндекс Форму** (через Playwright headless Chromium)
-3. Сохраняет JSON + скриншот на **Яндекс Диск** (накопительно)
-4. Записывает в локальный **SQLite**
-5. По команде `/summary [YYYY-MM-DD]` присылает в MAX **Excel-сводную** за день
+Прораб пишет в MAX свободным текстом отчёт. Бот:
+1. Парсит текст через **YandexGPT** в JSON по 12 полям формы
+2. Заполняет **Яндекс.Форму** через Playwright (headless Chromium)
+3. Сохраняет JSON + скриншот на **Яндекс.Диск**
+4. Пишет запись в **SQLite**
+5. Отвечает в MAX: `✅ Отправлено 📅 2026-07-10 🏗 РП-7 📸 скриншот`
+6. По команде `/webapp` показывает **Mini App** со сводной за период
+7. По команде `/summary [дата]` шлёт **Excel**-файл
 
-## Структура
+## Форма
+
+Реальная форма (12 полей MVP, целевая — 142):
+
+- **Дата отчёта** (date)
+- **Прораб / Ответственный / Подрядчик** (foreman)
+- **Объект** (object_name)
+- **Комментарий** (comment)
+- **Техника** (machine_type, unit, quantity) — список
+- **Вывоз грунта, м³** (waste_volume)
+- **ИТР** (itr)
+- **ОПР (штатные)** (opr_staff)
+- **ОПР (внештатные)** (opr_external)
+- **Итоговый комментарий** (final_comment)
+- (опц.) Погода
+
+## Архитектура
 
 ```
-yandex-form-bot/
-├── backend/
-│   ├── app.py               # FastAPI /healthz
-│   ├── config.py            # pydantic Settings
-│   ├── schemas.py           # Report / WorkItem / Material
-│   ├── llm/                 # YandexGPT client + parser + system prompt
-│   ├── forms/               # Playwright filler + MVP field map + real client
-│   ├── disk/                # Yandex Disk REST client + archive_report
-│   ├── db/                  # SQLite DAO
-│   ├── excel/               # build_summary + safe_str/safe_float
-│   ├── pipeline.py          # end-to-end orchestrator
-│   ├── max/                 # MaxClient (Telegram-compatible) + polling bot
-│   └── cli/                 # yfb-parse / yfb-fill / yfb-pipeline / yfb-bot / yfb-api
-├── tests/                   # 123 passed, ruff clean
-├── scripts/                 # golden regen
-├── deploy/                  # systemd unit + install.sh
-├── Dockerfile               # python:3.12-slim, optional Playwright
-├── docker-compose.yml       # bot (always) + api (profile)
-├── Makefile                 # install/lint/test/api/bot/clean
-├── pyproject.toml           # deps + ruff + pytest
-└── .env.example
+┌──────────┐  текст    ┌─────────┐  JSON    ┌──────────────┐  скрин  ┌─────────────┐
+│ Прораб   │──────────▶│ MAX Bot │──────────▶│ YandexGPT    │────────▶│ Playwright  │
+│  (MAX)   │           │ (long   │  Report  │ (parser)     │  Report │ (Chromium)  │
+└──────────┘           │ polling)│          └──────────────┘         └──────┬──────┘
+                       └────┬────┘                                         │
+                            │                                              ▼
+                            │        ┌─────────────┐              ┌─────────────┐
+                            ├───────▶│  SQLite     │              │ Yandex Disk │
+                            │        │ (app.db)    │              │ (JSON+PNG)  │
+                            │        └─────────────┘              └─────────────┘
+                            │
+                            ▼
+                       ┌──────────┐
+                       │ FastAPI  │ ← HMAC-аутентификация
+                       │  /api/*  │   (MAX initData)
+                       └────┬─────┘
+                            │
+                            ▼
+                       ┌──────────┐
+                       │ Mini App │ ← webview внутри MAX
+                       │ (HTML+JS)│
+                       └──────────┘
 ```
 
-## Quickstart (dev)
-
-```bash
-make install          # .venv + editable install
-cp .env.example .env  # fill in YANDEX_GPT_API_KEY, MAX_BOT_TOKEN, FORM_PUBLISHED_URL
-make test             # 123 passed
-```
-
-## Quickstart (prod, Docker)
-
-```bash
-cp .env.example .env  # fill in
-# Build (default: no Chromium; small image)
-docker compose build
-docker compose up -d bot reminder
-docker compose logs -f bot reminder
-
-# Enable debug API on localhost:8000:
-docker compose --profile api up -d api
-curl http://127.0.0.1:8000/healthz
-
-# Include Chromium (~300MB more) for real Yandex Forms filling:
-# INSTALL_PLAYWRIGHT=1 docker compose build
-```
-
-The `reminder` service runs an in-process scheduler that fires
-`yfb-reminder` at `REMINDER_HOUR:REMINDER_MINUTE` (default 20:00) every day
-in the timezone from `TZ` (default `Europe/Moscow`). No system cron needed.
-
-## Quickstart (RPi / systemd)
-
-```bash
-# on the Pi, as root
-git clone <repo> /opt/yandex-form-bot
-cd /opt/yandex-form-bot
-INSTALL_PLAYWRIGHT=1 sudo ./deploy/install.sh
-sudo vi /opt/yandex-form-bot/.env    # fill secrets
-sudo systemctl restart yandex-form-bot
-journalctl -u yandex-form-bot -f
-```
-
-## CLI
-
-```bash
-# Parse a foreman report into Report JSON (no form filling, no disk)
-.venv/bin/yfb-parse tests/fixtures/reports/foreman_stepanov_2026-07-10.txt
-
-# Run full pipeline on a text file
-.venv/bin/yfb-pipeline tests/fixtures/reports/foreman_stepanov_2026-07-10.txt --fake-form
-
-# Start the bot (long polling, blocks)
-.venv/bin/yfb-bot
-```
-
-## MAX bot commands
+## Команды бота
 
 | Команда | Что делает |
 |---|---|
-| `/help` | Помощь |
-|| `/start` | Подписаться на напоминание в 20:00 |
-|| `/stop` | Отписаться от напоминаний |
-|| `/summary` | Excel за **вчера** |
-|| `/summary 2026-07-10` | Excel за конкретный день |
-|| любой текст | Парсится как отчёт прораба → форма + диск + БД |
+| `/help` | Список команд |
+| `/webapp` | Открывает Mini App с карточками отчётов |
+| `/summary [YYYY-MM-DD]` | Excel-сводная за день (default: вчера) |
+| любой текст | Отчёт прораба → парсится → форма → диск → БД |
 
-## Напоминания
+## Быстрый старт
 
-Два пути:
+```bash
+# 1. Установить
+git clone https://github.com/rostislavo1981/yandex-form-bot.git
+cd yandex-form-bot
+make install       # uv/venv + pip install -e ".[dev]"
+playwright install chromium   # только если заполнять реальную форму
 
-1. **Docker (рекомендуется для prod):** поднимаешь `reminder` сервис через
-   `docker compose up -d reminder`. Внутри контейнера крутится
-   `backend/cli/scheduler.py`, который спит до 20:00 (или `REMINDER_HOUR:MINUTE`)
-   и вызывает `yfb-reminder`. Работает 24/7 пока жив контейнер.
+# 2. Настроить
+cp .env.example .env
+# Заполнить MAX_BOT_TOKEN, YANDEX_GPT_API_KEY, YANDEX_GPT_FOLDER_ID,
+# FORM_PUBLISHED_URL, YANDEX_DISK_OAUTH_TOKEN, WEBAPP_PUBLIC_URL
 
-2. **Hermes cron (только для dev на Mac):** задача `4dbfe8c2d2a2`
-   в `cronjob`. Работает только пока запущен Hermes и Mac не спит.
+# 3. Запустить
+make bot          # MAX-бот (long polling)
+make api          # FastAPI (Mini App backend) на :8000
+# или
+make test         # pytest
+make lint         # ruff
+```
 
-Подписчики хранятся в `data/subscribers.json` (формируется через `/start` в боте).
+## Деплой
 
-## Разработка
+### Локально (Mac)
+```bash
+INSTALL_PLAYWRIGHT=1 docker compose up -d bot
+```
 
-- **TDD:** все стадии — с тестами (parser, disk, forms, db, excel, bot, max, pipeline).
-- **Golden tests:** `tests/filler_golden` фиксирует последовательность заполнения формы. Регенерация: `python scripts/_gen_golden_fill_sequences.py`.
-- **Lint:** `make lint` (ruff).
-- **Str(config):** в проде `STRICT_CONFIG=1` (docker-compose по умолчанию) — бот не стартует без секретов.
-- **Данные в репо не попадают:** `data/` gitignored. SQLite, скриншоты, кэш Chromium — всё в `data/`.
+### На сервере (Linux)
+```bash
+sudo ./deploy/install.sh
+# → /opt/yandex-form-bot, systemd unit, автозапуск
+```
 
-## Связанные артефакты
+За reverse-proxy (nginx/Caddy) для HTTPS обязательно — MAX WebApp требует HTTPS.
 
-- **Форма:** https://forms.yandex.ru/admin/6a51e57af47e73a0eca7b48c/edit
-- **ID:** `6a51e57af47e73a0eca7b48c`
-- **Текущих вопросов:** 7 (нужно доделать до 142)
-- **Скоуп MVP:** 10 полей формы, 1 прораб (DEFAULT_FOREMAN=Степанов), 1 объект.
+## Тесты
 
-## Что нужно от пользователя
+```bash
+make test    # 152 теста, все зелёные
+make lint    # ruff clean
+```
 
-| Что | Где |
-|---|---|
-| YandexGPT API key | https://yandex.cloud |
-| MAX-бот токен | @MasterBot в MAX |
-| OAuth Яндекс Диска | https://oauth.yandex.ru |
-| ID опубликованной формы | будет после публикации |
+E2E smoke (проверяет pipeline → DB → API → Mini App JSON):
+```bash
+.venv/bin/python -c "import asyncio; from backend.forms import FakePlaywrightClient; ..."
+```
+
+## Документация
+
+- `docs/api.md` — REST API для Mini App
+- `docs/architecture.md` — компоненты и поток данных
+- `docs/deploy.md` — деплой на Mac / RPi / VPS
+- `docs/roadmap.md` — что дальше
+
+## Стек
+
+- Python 3.12+ / FastAPI / Pydantic v2 / httpx
+- YandexGPT (lite-модель для экономии)
+- Playwright (sync → asyncio.to_thread)
+- SQLite (встроено)
+- openpyxl (Excel)
+- pytest + ruff (тесты и линтер)
+- Docker + systemd (деплой)
+
+## Лицензия
+
+MIT
