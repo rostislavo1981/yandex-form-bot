@@ -1,0 +1,24 @@
+[Unit]
+Description=Yandex Form Bot (MAX polling)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/yandex-form-bot
+EnvironmentFile=/opt/yandex-form-bot/.env
+ExecStart=/opt/yandex-form-bot/.venv/bin/python -m backend.cli.run_bot
+Restart=on-failure
+RestartSec=10
+User=yfb
+Group=yfb
+
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/yandex-form-bot/data
+
+[Install]
+WantedBy=multi-user.target
