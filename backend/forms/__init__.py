@@ -103,6 +103,12 @@ class FakePlaywrightClient:
         self.records.append(FillRecord("close"))
         self.closed = True
 
+    async def __aenter__(self) -> FakePlaywrightClient:
+        return self
+
+    async def __aexit__(self, *exc: object) -> None:
+        await self.close()
+
     def call_sequence(self) -> list[str]:
         """Return ['goto', 'fill', 'fill', ..., 'submit', 'screenshot', 'close'] for assertions."""
         return [r.method for r in self.records]
