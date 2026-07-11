@@ -50,6 +50,7 @@ yfb-summary = "backend.cli.build_summary:main"
 yfb-pipeline = "backend.cli.run_pipeline:main"
 yfb-bot = "backend.cli.run_bot:main"
 yfb-api = "backend.cli.run_api:main"
+yfb-reminder = "backend.cli.run_reminder:main"
 
 [tool.setuptools.packages.find]
 include = ["backend*"]

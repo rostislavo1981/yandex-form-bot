@@ -49,14 +49,22 @@ make test             # 123 passed
 
 ```bash
 cp .env.example .env  # fill in
-# Optional: include Chromium for real form filling (default: dry-run)
-INSTALL_PLAYWRIGHT=1 docker compose build
-docker compose up -d bot
-docker compose logs -f bot
+# Build (default: no Chromium; small image)
+docker compose build
+docker compose up -d bot reminder
+docker compose logs -f bot reminder
+
 # Enable debug API on localhost:8000:
 docker compose --profile api up -d api
 curl http://127.0.0.1:8000/healthz
+
+# Include Chromium (~300MB more) for real Yandex Forms filling:
+# INSTALL_PLAYWRIGHT=1 docker compose build
 ```
+
+The `reminder` service runs an in-process scheduler that fires
+`yfb-reminder` at `REMINDER_HOUR:REMINDER_MINUTE` (default 20:00) every day
+in the timezone from `TZ` (default `Europe/Moscow`). No system cron needed.
 
 ## Quickstart (RPi / systemd)
 
@@ -94,11 +102,19 @@ journalctl -u yandex-form-bot -f
 || `/summary 2026-07-10` | Excel за конкретный день |
 || любой текст | Парсится как отчёт прораба → форма + диск + БД |
 
-## Напоминания (cron)
+## Напоминания
 
-Ежедневно в 20:00 cron-таска вызывает `yfb-reminder`, который шлёт сообщение
-всем подписчикам из `data/subscribers.json` (формируется через `/start`).
-Задача: `cronjob` Hermes (id `4dbfe8c2d2a2`), `0 20 * * *`, workdir = репо.
+Два пути:
+
+1. **Docker (рекомендуется для prod):** поднимаешь `reminder` сервис через
+   `docker compose up -d reminder`. Внутри контейнера крутится
+   `backend/cli/scheduler.py`, который спит до 20:00 (или `REMINDER_HOUR:MINUTE`)
+   и вызывает `yfb-reminder`. Работает 24/7 пока жив контейнер.
+
+2. **Hermes cron (только для dev на Mac):** задача `4dbfe8c2d2a2`
+   в `cronjob`. Работает только пока запущен Hermes и Mac не спит.
+
+Подписчики хранятся в `data/subscribers.json` (формируется через `/start` в боте).
 
 ## Разработка
 
