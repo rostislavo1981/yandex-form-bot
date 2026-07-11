@@ -1,0 +1,62 @@
+[
+  {
+    "method": "goto",
+    "url": "https://forms.yandex.ru/x"
+  },
+  {
+    "method": "fill",
+    "selector": "input[name=\"date\"]",
+    "value": "2026-07-10"
+  },
+  {
+    "method": "fill",
+    "selector": "input[name=\"object\"]",
+    "value": "ТП-345 Парнас"
+  },
+  {
+    "method": "fill",
+    "selector": "input[name=\"foreman\"]",
+    "value": "Казнадеев"
+  },
+  {
+    "method": "fill",
+    "selector": "input[name=\"work_1_name\"]",
+    "value": "Монтаж концевой муфты на кабеле 10 кВ"
+  },
+  {
+    "method": "fill",
+    "selector": "input[name=\"work_1_volume\"]",
+    "value": "4"
+  },
+  {
+    "method": "fill",
+    "selector": "input[name=\"work_1_unit\"]",
+    "value": "шт"
+  },
+  {
+    "method": "fill",
+    "selector": "input[name=\"work_2_name\"]",
+    "value": "Прозвонка и маркировка жил"
+  },
+  {
+    "method": "fill",
+    "selector": "input[name=\"work_2_volume\"]",
+    "value": "4"
+  },
+  {
+    "method": "fill",
+    "selector": "input[name=\"work_2_unit\"]",
+    "value": "шт"
+  },
+  {
+    "method": "fill",
+    "selector": "textarea[name=\"notes\"]",
+    "value": "Не хватает изоляции 25 мм, привезут завтра | доп. работы: Проверка изоляции мегаомметром 1 шт"
+  },
+  {
+    "method": "submit"
+  },
+  {
+    "method": "screenshot"
+  }
+]

@@ -1,0 +1,62 @@
+[
+  {
+    "method": "goto",
+    "url": "https://forms.yandex.ru/x"
+  },
+  {
+    "method": "fill",
+    "selector": "input[name=\"date\"]",
+    "value": "2026-07-10"
+  },
+  {
+    "method": "fill",
+    "selector": "input[name=\"object\"]",
+    "value": "БМ-21 новая, р-н Юкки"
+  },
+  {
+    "method": "fill",
+    "selector": "input[name=\"foreman\"]",
+    "value": "Трофимов"
+  },
+  {
+    "method": "fill",
+    "selector": "input[name=\"work_1_name\"]",
+    "value": "Копка котлована под БМ-21 глубина 2,5 м"
+  },
+  {
+    "method": "fill",
+    "selector": "input[name=\"work_1_volume\"]",
+    "value": "40"
+  },
+  {
+    "method": "fill",
+    "selector": "input[name=\"work_1_unit\"]",
+    "value": "м3"
+  },
+  {
+    "method": "fill",
+    "selector": "input[name=\"work_2_name\"]",
+    "value": "Заливка фундамента бетоном"
+  },
+  {
+    "method": "fill",
+    "selector": "input[name=\"work_2_volume\"]",
+    "value": "12"
+  },
+  {
+    "method": "fill",
+    "selector": "input[name=\"work_2_unit\"]",
+    "value": "м3"
+  },
+  {
+    "method": "fill",
+    "selector": "textarea[name=\"notes\"]",
+    "value": "экскаватор JCB 4 часа | доп. работы: Прокладка кабеля ВВГ 4х16 80 м"
+  },
+  {
+    "method": "submit"
+  },
+  {
+    "method": "screenshot"
+  }
+]
