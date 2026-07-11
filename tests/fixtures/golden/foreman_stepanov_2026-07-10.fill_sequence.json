@@ -10,48 +10,53 @@
   },
   {
     "method": "fill",
-    "selector": "input[name=\"object\"]",
-    "value": "РП-7 Каменка"
-  },
-  {
-    "method": "fill",
-    "selector": "input[name=\"foreman\"]",
+    "selector": "select[name=\"foreman\"], input[name=\"foreman\"]",
     "value": "Степанов"
   },
   {
     "method": "fill",
-    "selector": "input[name=\"work_1_name\"]",
-    "value": "Копка траншеи КЛ-10 кВ фидер 14"
+    "selector": "select[name=\"object\"], input[name=\"object\"]",
+    "value": "РП-7 Каменка"
   },
   {
     "method": "fill",
-    "selector": "input[name=\"work_1_volume\"]",
-    "value": "50"
+    "selector": "textarea[name=\"comment\"]",
+    "value": "доп. техника: Кран автомобильный 1 смена"
   },
   {
     "method": "fill",
-    "selector": "input[name=\"work_1_unit\"]",
-    "value": "м"
+    "selector": "input[name=\"machine_type\"]",
+    "value": "Экскаватор JCB 3CX"
   },
   {
     "method": "fill",
-    "selector": "input[name=\"work_2_name\"]",
-    "value": "Укладка кабеля АПвПу-10 3х120 в траншею"
+    "selector": "input[name=\"machine_unit\"]",
+    "value": "час"
   },
   {
     "method": "fill",
-    "selector": "input[name=\"work_2_volume\"]",
-    "value": "50"
+    "selector": "input[name=\"machine_quantity\"]",
+    "value": "8"
   },
   {
     "method": "fill",
-    "selector": "input[name=\"work_2_unit\"]",
-    "value": "м"
+    "selector": "input[name=\"waste_volume\"]",
+    "value": "15"
   },
   {
     "method": "fill",
-    "selector": "textarea[name=\"notes\"]",
-    "value": "доп. работы: Засыпка траншеи песком с послойной трамбовкой 30 м"
+    "selector": "input[name=\"itr\"]",
+    "value": "1"
+  },
+  {
+    "method": "fill",
+    "selector": "input[name=\"opr_staff\"]",
+    "value": "4"
+  },
+  {
+    "method": "fill",
+    "selector": "input[name=\"opr_external\"]",
+    "value": "0"
   },
   {
     "method": "submit"

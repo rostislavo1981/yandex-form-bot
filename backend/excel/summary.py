@@ -1,8 +1,7 @@
 """Build Excel summary workbook from a list of Reports.
 
-Layout: one sheet "Сводная", one row per submission.
-Columns: Дата | Объект | Прораб | Работа 1 (имя) | Работа 1 (объём, ед.)
-        | Работа 2 (имя) | Работа 2 (объём, ед.) | Материалы | Заметки | Подтверждено
+Form is about machines + personnel, not just works. New columns:
+Дата | Объект | Прораб | Техника (список) | Люди (ИТР/ОПР-ш/ОПР-в) | Грунт м³ | Комментарии | Подтверждено
 """
 from __future__ import annotations
 
@@ -30,70 +29,57 @@ HEADERS = [
     "Дата",
     "Объект",
     "Прораб",
-    "Работа 1 — название",
-    "Работа 1 — объём, ед.",
-    "Работа 1 — людей",
-    "Работа 2 — название",
-    "Работа 2 — объём, ед.",
-    "Работа 2 — людей",
-    "Доп. работы",
-    "Материалы",
-    "Заметки",
+    "Техника",
+    "Ед.",
+    "Кол-во",
+    "ИТР",
+    "ОПР (штат)",
+    "ОПР (внешт.)",
+    "Всего людей",
+    "Грунт, м³",
+    "Погода",
+    "Комментарий прораба",
+    "Итоговый комментарий",
     "Подтверждено",
 ]
 
 
-def _format_volume(volume: float, unit: str) -> str:
-    """Render 50.0 as '50 м' (not '50.0 м')."""
-    if volume == 0:
+def _format_quantity(v: float, unit: str) -> str:
+    if v == 0:
         return ""
-    if isinstance(volume, float) and volume.is_integer():
-        return f"{int(volume)} {unit}".strip()
-    return f"{volume:g} {unit}".strip()
-
-
-def _format_work_item(item: dict | None) -> tuple[str, str, str]:
-    """Returns (name, vol+unit, people)."""
-    if not item:
-        return "", "", ""
-    name = safe_str(item.get("name"))
-    vol = safe_str(item.get("volume"))
-    unit = safe_str(item.get("unit"))
-    people = safe_str(item.get("people_count"))
-    if vol:
-        try:
-            v = float(vol)
-            vol = _format_volume(v, unit) if unit else f"{v:g}"
-        except (TypeError, ValueError):
-            pass
-    return name, vol, people
-
-
-def _format_extras(works: list) -> str:
-    """Works beyond the first 2."""
-    if len(works) <= 2:
-        return ""
-    return "; ".join(_format_volume(w.volume, w.unit) for w in works[2:] if w.name)
-
-
-def _format_materials(materials: list) -> str:
-    return "; ".join(
-        f"{m.name} {_format_volume(m.qty, m.unit)}" for m in materials if m.name
-    )
+    if isinstance(v, float) and v.is_integer():
+        return f"{int(v)} {unit}".strip()
+    return f"{v:g} {unit}".strip()
 
 
 def _row_from_report(report: Report, *, confirmed: bool) -> list[object]:
-    w1 = _format_work_item(report.works[0].model_dump() if len(report.works) >= 1 else None)
-    w2 = _format_work_item(report.works[1].model_dump() if len(report.works) >= 2 else None)
+    machines_strs = [m.machine_type for m in report.machines if m.machine_type]
+    machines_qty = [
+        _format_quantity(m.quantity, m.unit) for m in report.machines if m.machine_type
+    ]
+    # First row shows first machine; rest goes into comment (or we just show all)
+    main_machine = "; ".join(machines_strs) if machines_strs else ""
+    main_qty = "; ".join(machines_qty) if machines_qty else ""
+    main_unit = (
+        "; ".join(m.unit for m in report.machines if m.machine_type)
+        if machines_strs else ""
+    )
+    p = report.personnel
     return [
         report.date.isoformat(),
         report.object_name,
         report.foreman,
-        w1[0], w1[1], w1[2],
-        w2[0], w2[1], w2[2],
-        _format_extras(report.works),
-        _format_materials(report.materials),
-        safe_str(report.notes),
+        main_machine,
+        main_unit,
+        main_qty,
+        p.itr,
+        p.opr_staff,
+        p.opr_external,
+        p.total,
+        report.waste_volume,
+        safe_str(report.weather),
+        safe_str(report.comment),
+        safe_str(report.final_comment),
         "✅" if confirmed else "⏳",
     ]
 
@@ -102,11 +88,7 @@ def build_summary(
     reports: Iterable[tuple[Report, bool]],
     output_path: Path,
 ) -> Path:
-    """Write a fresh workbook to output_path. Returns the path.
-
-    `reports` is an iterable of (Report, confirmed: bool) tuples.
-    Overwrites output_path if it exists.
-    """
+    """Write a fresh workbook to output_path. Returns the path."""
     wb = Workbook()
     ws: Worksheet = wb.active
     assert ws is not None
@@ -119,7 +101,6 @@ def build_summary(
         cell.font = HEADER_FONT
         cell.border = BORDER
 
-    # Data rows
     row_idx = 2
     for report, confirmed in reports:
         row = _row_from_report(report, confirmed=confirmed)
@@ -130,19 +111,16 @@ def build_summary(
                 cell.fill = CONFIRMED_FILL
         row_idx += 1
 
-    # Auto-width: rough estimate
+    # Auto-width
     for col_idx, header in enumerate(HEADERS, start=1):
         max_len = len(str(header))
-        # Sample a few rows for content width
         for r in range(2, min(row_idx, 12)):
             v = ws.cell(row=r, column=col_idx).value
             if v is not None:
                 max_len = max(max_len, min(50, len(str(v))))
         ws.column_dimensions[get_column_letter(col_idx)].width = max_len + 2
 
-    # Freeze top row
     ws.freeze_panes = "A2"
-
     output_path.parent.mkdir(parents=True, exist_ok=True)
     wb.save(str(output_path))
     logger.info("build_summary: wrote %d rows to %s", row_idx - 2, output_path)

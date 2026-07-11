@@ -1,17 +1,14 @@
 {
   "date": "2026-07-10",
-  "object_name": "БМ-21 новая, р-н Юкки",
   "foreman": "Трофимов",
-  "works": [
-    {"name": "Копка котлована под БМ-21 глубина 2,5 м", "volume": 40.0, "unit": "м3", "people_count": null},
-    {"name": "Заливка фундамента бетоном", "volume": 12.0, "unit": "м3", "people_count": null},
-    {"name": "Прокладка кабеля ВВГ 4х16", "volume": 80.0, "unit": "м", "people_count": 3}
+  "object_name": "БМ-21 новая, р-н Юкки",
+  "comment": "Бетон М300 залили 12 м³",
+  "machines": [
+    {"machine_type": "Экскаватор JCB", "unit": "час", "quantity": 4},
+    {"machine_type": "Кран", "unit": "смена", "quantity": 1}
   ],
-  "materials": [
-    {"name": "Бетон М300", "qty": 12.0, "unit": "м3"},
-    {"name": "Кабель ВВГ 4х16", "qty": 80.0, "unit": "м"},
-    {"name": "Песок мытый", "qty": 5.0, "unit": "м3"}
-  ],
-  "notes": "экскаватор JCB 4 часа",
+  "waste_volume": 25,
+  "personnel": {"itr": 1, "opr_staff": 3, "opr_external": 0},
+  "final_comment": null,
   "weather": "норм, +18"
 }

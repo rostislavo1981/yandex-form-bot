@@ -56,10 +56,20 @@ def test_machine_rejects_negative_quantity() -> None:
         MachineItem(machine_type="X", unit="час", quantity=-1)
 
 
-def test_machine_rejects_blank_type() -> None:
-    """machine_type is required (it's the 'name' of the machine)."""
-    with pytest.raises(ValidationError):
-        MachineItem(machine_type="", unit="час", quantity=1)
+def test_blank_machine_type_filtered_at_report_level() -> None:
+    """MachineItem itself allows empty machine_type (parser-tolerance),
+    but Report filters them out via _strip_empties."""
+    r = Report(
+        date="2026-07-10",
+        foreman="X",
+        object_name="Y",
+        machines=[
+            MachineItem(machine_type="  ", unit="час", quantity=1),
+            MachineItem(machine_type="Экскаватор", unit="час", quantity=4),
+        ],
+    )
+    assert len(r.machines) == 1
+    assert r.machines[0].machine_type == "Экскаватор"
 
 
 def test_empty_machines_filtered() -> None:

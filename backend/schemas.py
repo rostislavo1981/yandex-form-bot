@@ -27,20 +27,17 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 
 class MachineItem(BaseModel):
-    """One line of equipment/machinery used on site today."""
+    """One line of equipment/machinery used on site today.
+
+    `machine_type=""` is allowed at this level (parser-tolerance); Report
+    filters them out via `_strip_empties`.
+    """
 
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
     machine_type: str = Field(..., max_length=200)  # e.g. "Экскаватор JCB 3CX"
     unit: str = Field(..., min_length=1, max_length=20)  # "час", "смена", "м³"
     quantity: float = Field(..., ge=0)  # integer normally, but float for safety
-
-    @field_validator("machine_type")
-    @classmethod
-    def _non_blank(cls, v: str) -> str:
-        if not v or not v.strip():
-            raise ValueError("machine_type must not be blank")
-        return v
 
     def to_form_dict(self) -> dict[str, Any]:
         return {"machine_type": self.machine_type, "unit": self.unit, "quantity": self.quantity}
@@ -95,22 +92,10 @@ class Report(BaseModel):
                 raise ValueError(f"Invalid date string: {v!r}") from e
         raise ValueError(f"date must be date|datetime|str, got {type(v).__name__}")
 
-    @model_validator(mode="before")
-    @classmethod
-    def _filter_blank_machines(cls, data: Any) -> Any:
-        """Pre-validate: drop machines with blank machine_type before per-item validation."""
-        if isinstance(data, dict) and "machines" in data:
-            data = dict(data)
-            data["machines"] = [
-                m for m in data["machines"]
-                if isinstance(m, dict) and m.get("machine_type", "").strip()
-            ]
-        return data
-
     @model_validator(mode="after")
     def _strip_empties(self) -> Report:
-        # Drop machines with empty machine_type after strip (defense in depth)
-        self.machines = [m for m in self.machines if m.machine_type]
+        # Drop machines with empty machine_type (parser tolerance)
+        self.machines = [m for m in self.machines if m.machine_type and m.machine_type.strip()]
         return self
 
     def to_form_payload(self) -> dict[str, Any]:

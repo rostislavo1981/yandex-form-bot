@@ -10,48 +10,58 @@
   },
   {
     "method": "fill",
-    "selector": "input[name=\"object\"]",
-    "value": "ТП-345 Парнас"
-  },
-  {
-    "method": "fill",
-    "selector": "input[name=\"foreman\"]",
+    "selector": "select[name=\"foreman\"], input[name=\"foreman\"]",
     "value": "Казнадеев"
   },
   {
     "method": "fill",
-    "selector": "input[name=\"work_1_name\"]",
-    "value": "Монтаж концевой муфты на кабеле 10 кВ"
+    "selector": "select[name=\"object\"], input[name=\"object\"]",
+    "value": "ТП-345 Парнас"
   },
   {
     "method": "fill",
-    "selector": "input[name=\"work_1_volume\"]",
-    "value": "4"
+    "selector": "textarea[name=\"comment\"]",
+    "value": "доп. техника: Автовышка 4 час"
   },
   {
     "method": "fill",
-    "selector": "input[name=\"work_1_unit\"]",
-    "value": "шт"
+    "selector": "input[name=\"machine_type\"]",
+    "value": "Манипулятор"
   },
   {
     "method": "fill",
-    "selector": "input[name=\"work_2_name\"]",
-    "value": "Прозвонка и маркировка жил"
+    "selector": "input[name=\"machine_unit\"]",
+    "value": "смена"
   },
   {
     "method": "fill",
-    "selector": "input[name=\"work_2_volume\"]",
-    "value": "4"
+    "selector": "input[name=\"machine_quantity\"]",
+    "value": "1"
   },
   {
     "method": "fill",
-    "selector": "input[name=\"work_2_unit\"]",
-    "value": "шт"
+    "selector": "input[name=\"waste_volume\"]",
+    "value": "8"
   },
   {
     "method": "fill",
-    "selector": "textarea[name=\"notes\"]",
-    "value": "Не хватает изоляции 25 мм, привезут завтра | доп. работы: Проверка изоляции мегаомметром 1 шт"
+    "selector": "input[name=\"itr\"]",
+    "value": "1"
+  },
+  {
+    "method": "fill",
+    "selector": "input[name=\"opr_staff\"]",
+    "value": "2"
+  },
+  {
+    "method": "fill",
+    "selector": "input[name=\"opr_external\"]",
+    "value": "2"
+  },
+  {
+    "method": "fill",
+    "selector": "textarea[name=\"final_comment\"]",
+    "value": "не хватает изоляции 25 мм, привезут завтра"
   },
   {
     "method": "submit"

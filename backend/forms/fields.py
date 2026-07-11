@@ -1,11 +1,10 @@
-"""MVP field map for the Yandex Form.
+"""Real form field map — «Ежедневный отчёт по технике, механизмам и персоналу».
 
-The form at forms.yandex.ru/admin/6a51e57af47e73a0eca7b48c (today 7 questions,
-target 142) — for MVP we only fill the 10 most common fields.
+Form: https://forms.yandex.ru/admin/6a51e57af47e73a0eca7b48c/edit
+Currently 12 fields, target 142.
 
-Field name -> CSS selector / XPath hint. Real selectors will be discovered
-when the form is published. The map is intentionally a single source of
-truth so when the form changes, only this file is updated.
+When the form is published, the selectors here will be tuned against the
+real DOM. For now they are best-guess placeholders (input[name=...]).
 """
 from __future__ import annotations
 
@@ -16,24 +15,28 @@ from dataclasses import dataclass
 class FormField:
     """One form input."""
 
-    name: str  # logical name (matches Report.to_form_payload keys)
-    selector: str  # CSS or XPath; we use CSS in MVP
-    kind: str = "text"  # text | number | date | textarea
-    label: str = ""  # human-readable, for logs/errors
+    name: str
+    selector: str
+    kind: str = "text"  # text | number | date | textarea | select
+    label: str = ""
 
 
-# MVP: 10 fields. Order matters for the fill sequence.
+# 12 fields, in fill order.
+# NOTE: «ИТР», «ОПР (штатные)», «ОПР (внештатные)» — each is a separate integer
+# input in the real form (Yandex Forms renders "Целое число" as <input type=number>).
 MVP_FIELDS: tuple[FormField, ...] = (
     FormField("date", 'input[name="date"]', "date", "Дата отчёта"),
-    FormField("object_name", 'input[name="object"]', "text", "Объект"),
-    FormField("foreman", 'input[name="foreman"]', "text", "Прораб"),
-    FormField("work_1_name", 'input[name="work_1_name"]', "text", "Работа 1 — название"),
-    FormField("work_1_volume", 'input[name="work_1_volume"]', "number", "Работа 1 — объём"),
-    FormField("work_1_unit", 'input[name="work_1_unit"]', "text", "Работа 1 — ед."),
-    FormField("work_2_name", 'input[name="work_2_name"]', "text", "Работа 2 — название"),
-    FormField("work_2_volume", 'input[name="work_2_volume"]', "number", "Работа 2 — объём"),
-    FormField("work_2_unit", 'input[name="work_2_unit"]', "text", "Работа 2 — ед."),
-    FormField("notes", 'textarea[name="notes"]', "textarea", "Заметки"),
+    FormField("foreman", 'select[name="foreman"], input[name="foreman"]', "select", "Прораб"),
+    FormField("object", 'select[name="object"], input[name="object"]', "select", "Объект"),
+    FormField("comment", 'textarea[name="comment"]', "textarea", "Комментарий"),
+    FormField("machine_type", 'input[name="machine_type"]', "text", "Техника — название"),
+    FormField("machine_unit", 'input[name="machine_unit"]', "text", "Единица"),
+    FormField("machine_quantity", 'input[name="machine_quantity"]', "number", "Количество"),
+    FormField("waste_volume", 'input[name="waste_volume"]', "number", "Вывоз грунта, м³"),
+    FormField("itr", 'input[name="itr"]', "number", "ИТР"),
+    FormField("opr_staff", 'input[name="opr_staff"]', "number", "ОПР штатные"),
+    FormField("opr_external", 'input[name="opr_external"]', "number", "ОПР внештатные"),
+    FormField("final_comment", 'textarea[name="final_comment"]', "textarea", "Итоговый комментарий"),
 )
 
 
@@ -41,7 +44,6 @@ SUBMIT_SELECTOR = 'button[type="submit"], input[type="submit"]'
 
 
 def get_field(name: str) -> FormField:
-    """Lookup a field by logical name. Raises KeyError if missing."""
     for f in MVP_FIELDS:
         if f.name == name:
             return f

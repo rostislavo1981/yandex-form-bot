@@ -1,16 +1,14 @@
 {
   "date": "2026-07-10",
-  "object_name": "ТП-345 Парнас",
   "foreman": "Казнадеев",
-  "works": [
-    {"name": "Монтаж концевой муфты на кабеле 10 кВ", "volume": 4.0, "unit": "шт", "people_count": 2},
-    {"name": "Прозвонка и маркировка жил", "volume": 4.0, "unit": "шт", "people_count": null},
-    {"name": "Проверка изоляции мегаомметром", "volume": 1.0, "unit": "шт", "people_count": null}
+  "object_name": "ТП-345 Парнас",
+  "comment": null,
+  "machines": [
+    {"machine_type": "Манипулятор", "unit": "смена", "quantity": 1},
+    {"machine_type": "Автовышка", "unit": "час", "quantity": 4}
   ],
-  "materials": [
-    {"name": "Муфта концевая 10 кВ", "qty": 4.0, "unit": "компл"},
-    {"name": "Маркировочные бирки", "qty": 8.0, "unit": "шт"}
-  ],
-  "notes": "Не хватает изоляции 25 мм, привезут завтра",
+  "waste_volume": 8,
+  "personnel": {"itr": 1, "opr_staff": 2, "opr_external": 2},
+  "final_comment": "не хватает изоляции 25 мм, привезут завтра",
   "weather": "дождь, работали под тентом"
 }

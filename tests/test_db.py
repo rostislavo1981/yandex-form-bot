@@ -12,7 +12,9 @@ def _make_report_dict(foreman: str = "Степанов", object_name: str = "Р�
         date="2026-07-10",
         object_name=object_name,
         foreman=foreman,
-        works=[{"name": "Копка", "volume": 50.0, "unit": "м"}],
+        machines=[{"machine_type": "Экскаватор", "unit": "час", "quantity": 5}],
+        waste_volume=10.0,
+        personnel={"itr": 1, "opr_staff": 3, "opr_external": 0},
     )
     return r.model_dump(mode="json")
 
@@ -92,4 +94,4 @@ def test_report_json_round_trip(tmp_path: Path) -> None:
     s = dao.get_by_id(sid)
     r = Report.model_validate(s.report)
     assert r.foreman == "Казнадеев"
-    assert r.works[0].name == "Копка"
+    assert r.machines[0].machine_type == "Экскаватор"

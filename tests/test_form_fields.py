@@ -1,4 +1,4 @@
-"""Tests for backend.forms.fields (pure, no playwright)."""
+"""Tests for backend.forms.fields — REAL form (12 fields)."""
 from __future__ import annotations
 
 import pytest
@@ -6,8 +6,8 @@ import pytest
 from backend.forms.fields import MVP_FIELDS, all_field_names, get_field
 
 
-def test_mvp_has_ten_fields() -> None:
-    assert len(MVP_FIELDS) == 10
+def test_mvp_has_twelve_fields() -> None:
+    assert len(MVP_FIELDS) == 12
 
 
 def test_all_field_names_distinct() -> None:
@@ -18,27 +18,24 @@ def test_all_field_names_distinct() -> None:
 def test_required_fields_present() -> None:
     names = set(all_field_names())
     required = {
-        "date", "object_name", "foreman",
-        "work_1_name", "work_1_volume", "work_1_unit",
-        "work_2_name", "work_2_volume", "work_2_unit",
-        "notes",
+        "date", "foreman", "object", "comment",
+        "machine_type", "machine_unit", "machine_quantity",
+        "waste_volume", "itr", "opr_staff", "opr_external", "final_comment",
     }
-    assert required.issubset(names)
+    assert required == names, f"missing or extra: {required ^ names}"
 
 
 def test_get_field_works() -> None:
-    f = get_field("object_name")
-    assert f.label == "Объект"
-    assert f.kind == "text"
-    assert "object" in f.selector
+    f = get_field("waste_volume")
+    assert f.label == "Вывоз грунта, м³"
+    assert f.kind == "number"
 
 
 def test_get_field_unknown_raises() -> None:
-    with pytest.raises(KeyError, match="work_3_name"):
-        get_field("work_3_name")
+    with pytest.raises(KeyError, match="work_1_name"):
+        get_field("work_1_name")  # OLD form field, should not exist
 
 
-def test_selectors_are_css_or_xpath() -> None:
-    """MVP uses CSS; future may use XPath (//...) so accept both."""
+def test_selectors_are_css() -> None:
     for f in MVP_FIELDS:
-        assert f.selector.startswith("input") or f.selector.startswith("textarea") or f.selector.startswith("//")
+        assert f.selector.startswith("input") or f.selector.startswith("textarea") or f.selector.startswith("select")
