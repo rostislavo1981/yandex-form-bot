@@ -6,10 +6,13 @@ Flow:
 3. Reply with success/error
 4. /summary [date] → build summary, send xlsx
 5. /help → list commands
+6. /start  → subscribe the sender to daily 20:00 reminder
+7. /stop   → unsubscribe
 """
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import signal
 from datetime import date as _date
@@ -33,9 +36,54 @@ HELP_TEXT = (
     "🤖 Яндекс Формы Бот\n\n"
     "Команды:\n"
     "/help — это сообщение\n"
+    "/start — подписаться на напоминание в 20:00 заполнить отчёт\n"
+    "/stop — отписаться от напоминаний\n"
     "/summary [YYYY-MM-DD] — Excel-сводная за день (default: вчера)\n\n"
     "Любой другой текст = отчёт прораба → парсится и заполняет форму."
 )
+
+SUBSCRIBERS_FILENAME = "subscribers.json"
+
+
+def _subscribers_path(data_dir: Path) -> Path:
+    return data_dir / SUBSCRIBERS_FILENAME
+
+
+def _load_subscribers_file(data_dir: Path) -> dict[str, str]:
+    p = _subscribers_path(data_dir)
+    if not p.exists():
+        return {}
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+        return {str(k): str(v) for k, v in data.items()} if isinstance(data, dict) else {}
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def _save_subscribers_file(data_dir: Path, subs: dict[str, str]) -> None:
+    p = _subscribers_path(data_dir)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps(subs, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _subscribe(data_dir: Path, chat_id: str, name: str = "") -> bool:
+    """Add chat_id to subscribers. Returns True if it was a new subscription."""
+    subs = _load_subscribers_file(data_dir)
+    if chat_id in subs:
+        return False
+    subs[chat_id] = name or chat_id
+    _save_subscribers_file(data_dir, subs)
+    return True
+
+
+def _unsubscribe(data_dir: Path, chat_id: str) -> bool:
+    """Remove chat_id. Returns True if it was subscribed."""
+    subs = _load_subscribers_file(data_dir)
+    if chat_id not in subs:
+        return False
+    subs.pop(chat_id, None)
+    _save_subscribers_file(data_dir, subs)
+    return True
 
 
 async def handle_message(
@@ -51,10 +99,48 @@ async def handle_message(
         return
     if stripped.startswith("/help"):
         await max_client.send_message(chat_id, HELP_TEXT)
+    elif stripped.startswith("/start"):
+        await _handle_start(chat_id, stripped, max_client=max_client, **pipeline_deps)
+    elif stripped.startswith("/stop"):
+        await _handle_stop(chat_id, stripped, max_client=max_client, **pipeline_deps)
     elif stripped.startswith("/summary"):
         await _handle_summary(chat_id, stripped, max_client=max_client, **pipeline_deps)
     else:
         await _handle_report(chat_id, stripped, max_client=max_client, **pipeline_deps)
+
+
+async def _handle_start(
+    chat_id: int | str,
+    _text: str,
+    *,
+    max_client: MaxClient,
+    data_dir: Path,
+) -> None:
+    name = ""
+    # We don't get a clean username, so display name = chat_id
+    is_new = _subscribe(data_dir, str(chat_id), name)
+    msg = (
+        "✅ Подписка оформлена. Каждый день в 20:00 буду напоминать заполнить отчёт."
+        if is_new
+        else "Ты уже подписан на напоминания в 20:00. /stop — отписаться."
+    )
+    await max_client.send_message(chat_id, msg)
+
+
+async def _handle_stop(
+    chat_id: int | str,
+    _text: str,
+    *,
+    max_client: MaxClient,
+    data_dir: Path,
+) -> None:
+    was_subscribed = _unsubscribe(data_dir, str(chat_id))
+    msg = (
+        "❌ Подписка отменена. Напоминания больше не придут."
+        if was_subscribed
+        else "Ты не был подписан."
+    )
+    await max_client.send_message(chat_id, msg)
 
 
 async def _handle_report(
