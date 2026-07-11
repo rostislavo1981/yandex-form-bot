@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Яндекс Формы — Сводная</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="app-header">
+    <h1>📊 Сводная по отчётам</h1>
+    <div class="date-bar" id="date-bar">
+      <button data-range="today" class="chip">Сегодня</button>
+      <button data-range="yesterday" class="chip">Вчера</button>
+      <button data-range="7" class="chip">7 дней</button>
+      <button data-range="30" class="chip">30 дней</button>
+      <input type="date" id="date-from" />
+      <input type="date" id="date-to" />
+      <button id="apply" class="btn-primary">Применить</button>
+    </div>
+    <div class="filter-bar">
+      <input type="text" id="foreman-filter" placeholder="🔍 Фильтр по прорабу" />
+      <button id="download-xlsx" class="btn-secondary">📥 Excel</button>
+    </div>
+  </header>
+
+  <main id="content">
+    <div class="loading" id="loading">⏳ Загрузка…</div>
+    <div class="empty hidden" id="empty">Нет отчётов за выбранный период.</div>
+    <div class="summary-cards hidden" id="summary-cards">
+      <div class="card">
+        <div class="card-label">Отчётов</div>
+        <div class="card-value" id="stat-count">0</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Людей в день</div>
+        <div class="card-value" id="stat-people">0</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Техники (часов)</div>
+        <div class="card-value" id="stat-machines">0</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Грунт, м³</div>
+        <div class="card-value" id="stat-waste">0</div>
+      </div>
+    </div>
+    <ul class="submission-list hidden" id="list"></ul>
+  </main>
+
+  <div class="modal hidden" id="modal">
+    <div class="modal-backdrop" id="modal-backdrop"></div>
+    <div class="modal-content" id="modal-content">
+      <button class="modal-close" id="modal-close">×</button>
+      <div id="modal-body"></div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

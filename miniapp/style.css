@@ -1,0 +1,282 @@
+/* Yandex Form Bot — Mini App styles
+   Mobile-first, light theme, system font stack. */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg: #f5f6f8;
+  --card: #ffffff;
+  --text: #1a1a1a;
+  --muted: #6b6b7a;
+  --primary: #1f4e78;
+  --primary-hover: #2a6496;
+  --accent: #2e7d32;
+  --warn: #f57c00;
+  --border: #e4e6ea;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --radius: 12px;
+  --gap: 12px;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.4;
+  min-height: 100vh;
+}
+
+.app-header {
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  padding: 16px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  box-shadow: var(--shadow);
+}
+
+.app-header h1 {
+  font-size: 18px;
+  margin-bottom: 12px;
+  font-weight: 600;
+}
+
+.date-bar,
+.filter-bar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.date-bar input[type="date"] {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 14px;
+  background: var(--card);
+  color: var(--text);
+}
+
+.chip {
+  background: #eef0f3;
+  border: none;
+  border-radius: 16px;
+  padding: 6px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--text);
+  transition: background 0.15s;
+}
+
+.chip:hover { background: #dde1e6; }
+.chip.active { background: var(--primary); color: white; }
+
+.btn-primary,
+.btn-secondary {
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 14px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.15s;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: white;
+}
+.btn-primary:hover { background: var(--primary-hover); }
+
+.btn-secondary {
+  background: #eef0f3;
+  color: var(--text);
+}
+.btn-secondary:hover { background: #dde1e6; }
+
+.filter-bar input {
+  flex: 1;
+  min-width: 120px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 14px;
+  background: var(--card);
+}
+
+main {
+  padding: 16px;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.loading,
+.empty {
+  text-align: center;
+  padding: 40px 16px;
+  color: var(--muted);
+}
+
+.hidden { display: none !important; }
+
+.summary-cards {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--gap);
+  margin-bottom: 16px;
+}
+
+.card {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 14px;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+}
+
+.card-label {
+  font-size: 12px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.card-value {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.submission-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+}
+
+.submission-item {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 14px;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+
+.submission-item:hover { transform: translateY(-1px); }
+.submission-item.unconfirmed { border-left-color: var(--warn); }
+
+.submission-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+
+.submission-date {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.submission-object {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  flex: 1;
+  margin: 0 8px;
+}
+
+.submission-status {
+  font-size: 13px;
+}
+
+.submission-foreman {
+  color: var(--muted);
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.submission-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.submission-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Modal */
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.modal-content {
+  position: relative;
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 24px;
+  max-width: 90vw;
+  max-height: 85vh;
+  overflow: auto;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.modal-close {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  background: none;
+  border: none;
+  font-size: 28px;
+  cursor: pointer;
+  color: var(--muted);
+  line-height: 1;
+}
+
+.modal-body h2 {
+  margin-bottom: 16px;
+  font-size: 18px;
+}
+
+.modal-body .field {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+.modal-body .field:last-child { border-bottom: none; }
+.modal-body .field-label { color: var(--muted); }
+.modal-body .field-value { font-weight: 500; text-align: right; }
+
+.modal-body .screenshot-img {
+  width: 100%;
+  border-radius: 8px;
+  margin-top: 12px;
+  border: 1px solid var(--border);
+}

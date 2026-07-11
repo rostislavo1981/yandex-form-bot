@@ -10,9 +10,9 @@ import pytest
 
 from backend.db import SubmissionDAO
 from backend.forms import FakePlaywrightClient
-from backend.llm import build_user_prompt  # noqa: F401
 from backend.max import MaxClient
-from backend.max.bot import _handle_summary, handle_message
+from backend.max.bot import handle_message
+from backend.max.commands import handle_summary_command
 
 VALID_REPORT_JSON = json.dumps(
     {
@@ -101,7 +101,7 @@ async def test_handle_summary_no_data(tmp_path: Path) -> None:
     max_client = _max_with_handler(handler)
     dao = SubmissionDAO(tmp_path / "app.db")
     try:
-        await _handle_summary(
+        await handle_summary_command(
             42, "/summary 2026-07-10", max_client=max_client, dao=dao, data_dir=tmp_path
         )
     finally:
@@ -135,7 +135,7 @@ async def test_handle_summary_with_data_sends_file(tmp_path: Path) -> None:
     )
     max_client = _max_with_handler(handler)
     try:
-        await _handle_summary(
+        await handle_summary_command(
             42, "/summary 2026-07-10", max_client=max_client, dao=dao, data_dir=tmp_path
         )
     finally:
@@ -159,7 +159,7 @@ async def test_handle_summary_invalid_date(tmp_path: Path) -> None:
     max_client = _max_with_handler(handler)
     dao = SubmissionDAO(tmp_path / "app.db")
     try:
-        await _handle_summary(42, "/summary не дата", max_client=max_client, dao=dao, data_dir=tmp_path)
+        await handle_summary_command(42, "/summary не дата", max_client=max_client, dao=dao, data_dir=tmp_path)
     finally:
         await max_client.close()
     assert any("Неверная дата" in s["text"] for s in sent)
