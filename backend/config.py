@@ -45,7 +45,11 @@ class Settings(BaseSettings):
     yandex_gpt_max_tokens: int = 2000
 
     # --- Yandex Forms ---
-    form_published_url: str | None = None
+    form_published_url: str | None = None  # legacy — points to foreman form
+    form_foreman_id: str | None = None
+    form_foreman_url: str | None = None
+    form_contractor_id: str | None = None
+    form_contractor_url: str | None = None
 
     # --- Yandex Disk ---
     yandex_disk_oauth_token: str | None = None
@@ -75,20 +79,21 @@ class Settings(BaseSettings):
         return os.getenv("STRICT_CONFIG", "0") == "1"
 
     def required_secrets_present(self) -> set[str]:
-        """Return the set of required-in-strict env var names that are MISSING."""
+        """Return the set of required-in-strict env var names that are MISSING.
+
+        Note: this returns a *combined* set of all-required. Callers that
+        only run the reminder service should still get an empty set if both
+        foreman and contractor URLs are set, OR if at least one legacy
+        form_published_url is set. The actual per-service validation happens
+        in the CLI itself (send_reminder only needs MAX_BOT_TOKEN).
+        """
         if not self.strict:
             return set()
         missing: set[str] = set()
-        if not self.yandex_gpt_api_key:
-            missing.add("YANDEX_GPT_API_KEY")
-        if not self.yandex_gpt_folder_id:
-            missing.add("YANDEX_GPT_FOLDER_ID")
         if not self.max_bot_token:
             missing.add("MAX_BOT_TOKEN")
-        if not self.yandex_disk_oauth_token:
-            missing.add("YANDEX_DISK_OAUTH_TOKEN")
-        if not self.form_published_url:
-            missing.add("FORM_PUBLISHED_URL")
+        if not (self.form_foreman_url or self.form_contractor_url or self.form_published_url):
+            missing.add("FORM_*_URL")
         return missing
 
     def validate_for_runtime(self) -> None:

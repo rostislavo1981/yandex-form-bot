@@ -20,15 +20,16 @@ from backend.excel import (
     HEADER_FONT,
     safe_str,
 )
-from backend.schemas import Report
+from backend.schemas import Personnel, Report
 
 logger = logging.getLogger(__name__)
 
 
 HEADERS = [
+    "Тип",
     "Дата",
     "Объект",
-    "Прораб",
+    "Прораб / Подрядчик",
     "Техника",
     "Ед.",
     "Кол-во",
@@ -38,10 +39,22 @@ HEADERS = [
     "Всего людей",
     "Грунт, м³",
     "Погода",
-    "Комментарий прораба",
+    "Комментарий",
     "Итоговый комментарий",
     "Подтверждено",
 ]
+
+TYPE_LABEL = {"foreman": "Прораб", "contractor": "Подрядчик"}
+
+
+def _personnel_cells(p: Personnel | None) -> tuple[object, object, object, object]:
+    """Return (itr, opr_staff, opr_external, total) for the row.
+
+    Contractor reports have no personnel; we render «—» for each.
+    """
+    if p is None:
+        return "—", "—", "—", "—"
+    return p.itr, p.opr_staff, p.opr_external, p.total
 
 
 def _format_quantity(v: float, unit: str) -> str:
@@ -65,17 +78,19 @@ def _row_from_report(report: Report, *, confirmed: bool) -> list[object]:
         if machines_strs else ""
     )
     p = report.personnel
+    itr, opr_staff, opr_external, total = _personnel_cells(p)
     return [
+        TYPE_LABEL.get(report.type, report.type),
         report.date.isoformat(),
         report.object_name,
         report.foreman,
         main_machine,
         main_unit,
         main_qty,
-        p.itr,
-        p.opr_staff,
-        p.opr_external,
-        p.total,
+        itr,
+        opr_staff,
+        opr_external,
+        total,
         report.waste_volume,
         safe_str(report.weather),
         safe_str(report.comment),
