@@ -12,10 +12,12 @@ from app.models.catalogs import (
     WorkType,
     WorkTypeMethod,
 )
+from app.models.operations import CatalogImport
 from app.models.users import GroupMember, MAXGroup, User
 
 __all__ = [
     "Base",
+    "CatalogImport",
     "User",
     "MAXGroup",
     "GroupMember",

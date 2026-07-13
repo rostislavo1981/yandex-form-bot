@@ -30,7 +30,7 @@ def clear_tables():
     truncate_sql = text(
         "TRUNCATE TABLE work_type_methods, object_stages, work_types, objects, "
         "group_members, equipment_types, work_methods, users, units, stages, "
-        "max_groups, contractors RESTART IDENTITY CASCADE"
+        "max_groups, contractors, catalog_imports RESTART IDENTITY CASCADE"
     )
     with test_engine.begin() as conn:
         conn.execute(truncate_sql)

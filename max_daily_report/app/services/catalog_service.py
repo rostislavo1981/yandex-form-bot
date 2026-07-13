@@ -32,16 +32,14 @@ def _paginate(query, limit: int, offset: int):
 
 
 def _catalog_search_filter(model, q: str | None):
+    active_filter = model.active == True  # noqa: E712
     if q is None:
-        return model.active == True  # noqa: E712
+        return active_filter
     pattern = f"%{q}%"
-    return (
-        model.active == True  # noqa: E712
-        and (
-            func.lower(model.name).like(pattern)
-            | func.lower(model.code).like(pattern)
-            | func.lower(func.coalesce(model.search_aliases, "")).like(pattern)
-        )
+    return active_filter & (
+        func.lower(model.name).like(pattern)
+        | func.lower(model.code).like(pattern)
+        | func.lower(func.coalesce(model.search_aliases, "")).like(pattern)
     )
 
 

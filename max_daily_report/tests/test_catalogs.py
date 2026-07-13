@@ -31,7 +31,9 @@ def _seed_catalogs(db_session: Session):
     db_session.flush()
 
     obj = Object(code=f"obj-{s}", name=f"Объект {s}", execution_method="own")
-    other_obj = Object(code=f"obj-other-{s}", name="Другой объект", execution_method="own")
+    other_obj = Object(
+        code=f"other-{s}", name="Другой объект", execution_method="own"
+    )
     stage_a = Stage(code=f"st-a-{s}", name="Подготовка")
     stage_b = Stage(code=f"st-b-{s}", name="Нулевой цикл")
     other_stage = Stage(code=f"st-other-{s}", name="Чужой этап")
