@@ -4,7 +4,13 @@
 |---|---|
 | **MAX** | Российский мессенджер max.ru с Bot API и Mini App |
 | **Mini App** | Webview, открываемое внутри MAX по кнопке в чате |
-| **initData** | Подписанная строка, которую MAX кладёт в webview для проверки пользователя |
+| **initData** | Подписанная строка, которую MAX кладёт в webview для проверки пользователя. В MAX: `HMAC_SHA256(auth_date + phone + user_id, bot_token)` (не как в Telegram) |
+| **startapp** | Query-параметр в deep-link `https://max.ru/<bot>?startapp=<data>`, попадает в webview как `WebApp.initDataUnsafe.start_param` |
+| **attachments** | Массив прикреплений в `POST /messages` — включая клавиатуру (`inline_keyboard`) и файлы |
+| **message_callback** | Тип update, приходящий при нажатии `callback`-кнопки |
+| **`POST /answers`** | Endpoint MAX для ответа на callback-нажатие |
+| **Пульт** | Закреплённое в группе сообщение бота с кнопками для быстрого доступа к отчёту/сводной |
+| **Deep-link** | URL, открывающий приложение на нужном экране с payload; в MAX — `max.ru/<bot>?startapp=…` |
 | **HMAC** | Keyed-Hash Message Authentication Code — способ проверки подписи |
 | **Bot API** | HTTP-интерфейс для программного управления ботом |
 | **long polling** | Способ получения обновлений: клиент делает длинный HTTP-запрос `getUpdates`, сервер держит его открытым до появления событий |

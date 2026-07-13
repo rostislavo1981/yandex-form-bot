@@ -37,15 +37,14 @@
 
 ---
 
-## ADR-003. HMAC-верификация initData по Telegram-схеме
+## ADR-003. HMAC-верификация initData
 
 **Дата:** пре-Phase 0
-**Статус:** принято, **[непроверено]**
-**Контекст:** документация MAX Mini App API на момент написания спеки не изучена детально.
-**Гипотеза:** MAX использует ту же схему, что Telegram WebApp: `HMAC_SHA256(SHA256(bot_token), data_check_string)`.
-**Выбор:** реализуем по Telegram-схеме, помечаем `[непроверено]` в коде.
-**План отмены:** если официальная документация MAX опишет другую схему — заменить содержимое `webapp_auth.py` (интерфейс `verify_init_data(str, str) -> dict` сохранить).
-**Последствия:** frontend и middleware завязаны на строку `X-Auth-InitData`. Если формат имени заголовка/поля отличается — переименовать в одной точке.
+**Статус:** **отменено ADR-008** (формула отличается от Telegram)
+**Контекст:** документация MAX Mini App API на момент написания спеки не была изучена детально.
+**Гипотеза (была):** MAX использует ту же схему, что Telegram WebApp: `HMAC_SHA256(SHA256(bot_token), data_check_string)`.
+**Что оказалось на практике:** после сверки с [dev.max.ru/docs/webapps/bridge](https://dev.max.ru/docs/webapps/bridge) выяснилось, что формула другая: `HMAC_SHA256(auth_date + phone + user_id, bot_token)`. См. ADR-008 и `05_max_integration.md` §5.12.
+**Последствия:** `webapp_auth.py` реализуется по формуле MAX. Интерфейс `verify_init_data(str, str) -> dict` сохранён — контракт для остального кода не изменился.
 
 ---
 
@@ -60,15 +59,15 @@
 
 ---
 
-## ADR-005. Long polling, не webhook
+## ADR-005. Long polling, не webhook (для dev/старта)
 
 **Дата:** пре-Phase 0
-**Статус:** принято
+**Статус:** принято, **уточнено ADR-009**
 **Контекст:** старт быстрый, VPS с HTTPS для webhook на первом этапе может отсутствовать.
-**Выбор:** long polling через `getUpdates`.
+**Выбор:** long polling через `GET /updates`.
 **Обоснование:** работает без внешнего HTTPS-эндпоинта; проще отладка (можно запускать бота локально).
-**Переход на webhook:** запланирован как пост-MVP улучшение (Phase 7+).
-**Последствия:** один инстанс бота (иначе гонки за offset). При росте нагрузки — переход на webhook.
+**Важное уточнение:** документация MAX прямо предупреждает, что long polling ограничен по rate и не рекомендуется для прода. Переход на webhook — **не пост-MVP, а сразу после первого прод-деплоя** (Phase A5.5 / B6.5). См. ADR-009.
+**Последствия:** один инстанс бота (иначе гонки за marker). При выходе в прод — обязательный переход на webhook.
 
 ---
 
@@ -91,6 +90,45 @@
 **Выбор:** `{"detail": "Этап не принадлежит объекту"}` — сразу по-русски.
 **Обоснование:** frontend не переводит, просто показывает; экономия времени.
 **Последствия:** если появятся другие клиенты — вводить локализацию (тогда i18n-ключи).
+
+---
+
+## ADR-008. MAX Bot API — REST-стиль, отличается от Telegram
+
+**Дата:** после сверки с [dev.max.ru/docs-api](https://dev.max.ru/docs-api)
+**Статус:** принято, отменяет часть ADR-003
+**Контекст:** до сверки исходили из гипотезы, что MAX копирует Telegram Bot API (методы `sendMessage`, `answerCallbackQuery`, `reply_markup`). На практике API MAX — REST-стиль с другими именами.
+**Ключевые отличия (закреплены в `05_max_integration.md`):**
+1. **Базовый URL:** `https://platform-api2.max.ru` (не `api.telegram.org/bot<TOKEN>/`).
+2. **Авторизация:** заголовок `Authorization: <token>` (не в URL).
+3. **Методы — REST:** `POST /messages`, `GET /updates`, `POST /subscriptions`, `POST /answers`, `POST /uploads`, `GET/PATCH /chats/{id}`.
+4. **Inline-кнопки:** через `attachments: [{type: "inline_keyboard", payload: {buttons: [[…]]}}]`, не `reply_markup`.
+5. **Типы кнопок:** 7 штук — `callback`, `link`, `open_app`, `message`, `request_contact`, `request_geo_location`, `clipboard`. Особенно ценна `message` (жмёшь — от твоего имени отправляется заготовленный текст) для пульта в группе.
+6. **Callback-событие:** update_type `message_callback`, ответ на него — `POST /answers` (не `answerCallbackQuery`).
+7. **HMAC initData:** `HMAC_SHA256(auth_date + phone + user_id, bot_token)` — ключ HMAC = сам токен, data-check = конкатенация только трёх полей. Отличается от Telegram и от нашей исходной гипотезы (ADR-003).
+8. **Deep-link:** `https://max.ru/<bot>?startapp=<payload>` → `WebApp.initDataUnsafe.start_param`. Основной механизм «кнопка в группе → форма в личке».
+
+**Последствия:**
+- Полностью переписан `05_max_integration.md`.
+- `MaxClient` реализуется под REST endpoints; интерфейс методов (`send_message`, `get_updates`, `answer_callback`) остаётся человеко-читаемым, но внутри — REST-вызовы.
+- Некоторые детали остались `[непроверено]` (полная схема update, таймаут answers, endpoint для регистрации команд) — список открытых вопросов см. в `05_max_integration.md` §5.17.
+
+---
+
+## ADR-009. Webhook — сразу после первого прод-деплоя
+
+**Дата:** после сверки с docs
+**Статус:** принято, уточняет ADR-005
+**Контекст:** документация MAX явно рекомендует webhook для прода: «Получение обновлений с помощью Long Polling ограничено по скорости».
+**Выбор:** long polling для локальной разработки и dev-окружения; на проде — webhook сразу с момента первого деплоя.
+**План:**
+- Phase A3 / B5: реализовать `MaxClient` с обоими режимами (`get_updates` для dev, обработчик `POST /webhook/max` для prod).
+- Phase A5 / B6: при деплое зарегистрировать webhook через `POST /subscriptions` с URL `https://<domain>/webhook/max`.
+- Внутри одного `MaxClient` — унифицированный интерфейс `run(handler)`, режим переключается по env.
+
+**Последствия:**
+- Прод-деплой требует HTTPS-эндпоинта даже в Track A (Bot-first). До этого думали, что можно без HTTPS.
+- Track A всё равно проще: HTTPS нужен только для одного endpoint `/webhook/max`, без frontend'а. Caddy + let's encrypt DNS challenge — 30 минут работы.
 
 ---
 

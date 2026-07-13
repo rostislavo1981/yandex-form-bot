@@ -158,13 +158,13 @@
 **Цель:** бот в MAX открывает Mini App; авторизация работает.
 
 **Задачи:**
-1. `backend/app/webapp_auth.py` — `verify_init_data` (см. `05_max_integration.md` §5.6).
+1. `backend/app/webapp_auth.py` — `verify_init_data` по формуле MAX `HMAC_SHA256(auth_date + phone + user_id, bot_token)` (см. `05_max_integration.md` §5.12; ADR-008).
 2. `backend/app/deps.py` — `require_max_user` dependency.
 3. Подключить dependency ко всем `/api/*` кроме `/health`.
 4. **Dev-режим:** если `settings.app_env == "dev"` и `X-Auth-InitData` отсутствует — подставлять фикс-юзера. Реализовать через отдельный dependency, выбираемый в `deps.py` по env.
-5. `backend/app/max/client.py` — `MaxClient` (см. `05` §5.3).
-6. `backend/app/max/handlers.py` — обработчики `/start`, `/report`, `/summary`, `/help`.
-7. `backend/app/max/poller.py` — цикл `get_updates`.
+5. `backend/app/max/client.py` — `MaxClient` с REST endpoints MAX: `POST /messages`, `GET /updates`, `POST /subscriptions`, `POST /answers`, `POST /uploads` (см. `05_max_integration.md` §5.4).
+6. `backend/app/max/handlers.py` — обработчики `/start`, `/report`, `/summary`, `/help`; события `message_created` и `message_callback`.
+7. `backend/app/max/poller.py` — цикл `get_updates` для dev; `backend/app/max/webhook.py` — endpoint `POST /webhook/max` для прода (см. ADR-009).
 8. `backend/app/bot.py`:
    ```python
    async def main():
@@ -187,7 +187,7 @@
 - Запрос без `X-Auth-InitData` возвращает 401 (в prod-режиме).
 - Тесты зелёные.
 
-> Если API MAX окажется отличным от Telegram-схемы: заменить содержимое `webapp_auth.py` и `MaxClient` без изменения всего остального.
+> API MAX уже сверен с docs (см. ADR-008 и `05_max_integration.md`). Все `[непроверено]` собраны в §5.17 — их надо закрыть перед началом фазы, залогировав реальные updates от тестового бота.
 
 ---
 

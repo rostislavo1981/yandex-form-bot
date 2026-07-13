@@ -96,6 +96,30 @@
 
 ---
 
+### [2026-07-13] — Сверка с реальной документацией MAX Bot API
+
+**Агент:** Claude Opus 4.7
+**Фаза:** пре-Phase 0 (только документация)
+**Что сделал:**
+- Сверил `05_max_integration.md` с [dev.max.ru/docs](https://dev.max.ru/docs) и [dev.max.ru/docs-api](https://dev.max.ru/docs-api).
+- Полностью переписал `05_max_integration.md` под реальный API: base URL `platform-api2.max.ru`, авторизация header'ом, REST-стиль endpoints (`POST /messages`, `GET /updates`, `POST /subscriptions`, `POST /answers`, `POST /uploads`).
+- Добавил 7 типов кнопок MAX (`callback`, `link`, `open_app`, `message`, `request_contact`, `request_geo_location`, `clipboard`) с примерами. Ключевое — `message` для пульта в группе.
+- Скорректировал формулу HMAC verify_init_data: `HMAC_SHA256(auth_date + phone + user_id, bot_token)` — отличается от Telegram.
+- Задокументировал deep-link `https://max.ru/<bot>?startapp=<payload>` для запуска отчёта из группы.
+- **DECISIONS.md:** ADR-003 помечен «отменено ADR-008»; ADR-005 «уточнено ADR-009»; добавлены ADR-008 (API MAX ≠ Telegram) и ADR-009 (webhook сразу после деплоя).
+- **12_track_A_bot_first.md:** Phase A3 переписана под реальные endpoints MAX, добавлен раздел webhook. Phase A5 переписана: HTTPS всё же нужен (для `/webhook/max`).
+- **08_implementation_plan.md:** Phase 5 обновлена — HMAC-формула и REST-методы MAX.
+- **10_glossary.md:** добавлены startapp, attachments, message_callback, POST /answers, Пульт, Deep-link.
+
+**Что НЕ сделал:**
+- Файлы `13_bot_conversation.md`, `14_group_notifications.md`, `15_group_controls.md` пока не созданы — их писать в момент реализации Phase A3/A4.5, чтобы не расходились с реальностью.
+- В `05_max_integration.md` §5.17 остались 8 `[непроверено]` пунктов — их надо закрыть логированием реальных updates от тестового бота.
+
+**Следующий шаг:**
+Первый агент-разработчик начинает **Phase A0 / Phase 0 — Bootstrap** по трекам A или B (см. `11_two_tracks.md`). Рекомендация — Track A.
+
+---
+
 ### [YYYY-MM-DD HH:MM] — Инициализация пакета спецификаций
 
 **Агент:** Claude Opus 4.7
