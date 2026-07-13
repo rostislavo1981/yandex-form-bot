@@ -37,6 +37,7 @@ dev = [
 
 [project.scripts]
 mdr-api = "app.main:main"
+mdr-seed = "app.seed:main"
 
 [tool.setuptools.packages.find]
 include = ["app*"]

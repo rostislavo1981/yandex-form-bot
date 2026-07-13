@@ -4,69 +4,63 @@
 
 ## Текущий статус
 
-I01 завершена. Схема users/groups/catalogs создана через Alembic, test DB fixture работает на реальном PostgreSQL.
+I02 завершена. Seed справочников работает идемпотентно через `python -m app.seed`.
 
 | Итерация | Статус | Результат |
 |---|---|---|
 | I00 | COMPLETED | Скелет `max_daily_report/`, health, PostgreSQL compose, тест |
 | I01 | COMPLETED | База и миграции |
-| I02 | NEXT | Seed справочников |
-| I03–I22 | WAIT | Выполняются строго по порядку |
+| I02 | COMPLETED | Seed справочников |
+| I03 | NEXT | Поиск каталогов |
+| I04–I22 | WAIT | Выполняются строго по порядку |
 
-## Текущая итерация: I02
+## Текущая итерация: I03
 
-Следующий агент делает только I02 из `08_implementation_plan.md`.
+Следующий агент делает только I03 из `08_implementation_plan.md`.
 
-## Чек-лист I02
+## Чек-лист I03
 
-- [ ] Минимальный seed users/objects/stages/units/equipment/work types.
-- [ ] Идемпотентная команда `python -m app.seed`.
-- [ ] Два запуска не создают дубли.
-- [ ] Связи object-stage валидны.
+- [ ] Endpoints objects, stages, equipment, work-types, methods, units.
+- [ ] Нормализация входящего query и pagination.
+- [ ] Тест поиска по части русского названия, code, alias.
+- [ ] inactive не возвращается; этап чужого объекта не возвращается.
 - [ ] `pytest` и `ruff check .` зелёные.
 - [ ] Добавлен handoff и один коммит.
 
 ## HANDOFF NOTES
 
-### 2026-07-14 — I01 завершена
+### 2026-07-14 — I02 завершена
 
 **Агент:** kimi-k2.7-code:cloud
 **Ветка:** codex/i00-skeleton
-**Итерация:** I01 — База и миграции
-**Коммит:** 64f60e1
+**Итерация:** I02 — Seed справочников
+**Коммит:** 44f09b9
 
 **Сделано:**
-- Настроена async SQLAlchemy: `app/database.py`, `app/models/base.py`.
-- Инициализирован Alembic: `alembic.ini`, `app/migrations/env.py` с async-движком.
-- Созданы модели users (`users`, `max_groups`, `group_members`) и catalogs (`contractors`, `objects`, `stages`, `object_stages`, `units`, `equipment_types`, `work_types`, `work_methods`, `work_type_methods`).
-- Первая миграция `1a2e795e0f06` создаёт все таблицы и extension `pg_trgm`.
-- Добавлен test DB fixture в `tests/conftest.py` (sync psycopg2 для стабильности) с truncate всех таблиц перед каждым тестом.
-- Тест `tests/test_database.py` вставляет строки во все таблицы и проверяет чтение.
+- Реализован `app/seed.py` с идемпотентными `seed()` (async) и `seed_sync()` (sync для тестов).
+- Seed создаёт пользователей, рабочую группу, членство в группе, подрядчиков, единицы измерения, этапы, объекты, связи объект-этап, типы техники, виды работ, способы работ и связи вид-способ.
+- Добавлен `CatalogRepo` в `app/repos/catalogs.py` для get_or_create/ensure операций.
+- Подключён CLI: `python -m app.seed` и entry point `mdr-seed`.
+- Добавлен тест `tests/test_seed.py`: двойной запуск не создаёт дубли; проверяет валидность связей object-stage.
 
 **Не сделано:**
-- Отчёты, Excel, MAX integration — вне scope I01.
+- API endpoints для поиска каталогов (I03); отчёты, Excel, MAX — далее по плану.
 
 **Проверки:**
-- `../.venv/bin/alembic upgrade head` → OK.
-- `../.venv/bin/alembic downgrade base && ../.venv/bin/alembic upgrade head` → OK.
-- `make test` → 2 passed.
+- `cd max_daily_report && ../.venv/bin/python -m app.seed` → Seed completed successfully (дважды, без дублей).
+- `make test` → 153 passed.
 - `make lint` → All checks passed!
 
 **Blocker/риск:**
-- pytest-asyncio 0.23+ конфликтовал с asyncpg по event loop. Решено использованием sync psycopg2-binary только в тестах.
+- Нет.
 
 **Следующий единственный шаг:**
-- I02: seed справочников (users/objects/stages/units/equipment/work types) + идемпотентная команда `python -m app.seed`.
+- I03: endpoints objects, stages, equipment, work-types, methods, units с поиском и pagination.
 
 **Изменённые файлы:**
 - `max_daily_report/pyproject.toml`
-- `max_daily_report/alembic.ini`
-- `max_daily_report/app/migrations/env.py`
-- `max_daily_report/app/migrations/versions/1a2e795e0f06_initial_schema_users_groups_catalogs.py`
-- `max_daily_report/app/models/__init__.py`
-- `max_daily_report/app/models/base.py`
-- `max_daily_report/app/models/catalogs.py`
-- `max_daily_report/app/models/users.py`
-- `max_daily_report/tests/conftest.py`
-- `max_daily_report/tests/test_database.py`
+- `max_daily_report/app/seed.py`
+- `max_daily_report/app/repos/catalogs.py`
+- `max_daily_report/app/repos/__init__.py`
+- `max_daily_report/tests/test_seed.py`
 - `docs/max-mini-app-spec/PROGRESS.md`
