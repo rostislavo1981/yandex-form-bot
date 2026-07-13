@@ -1,5 +1,7 @@
 # REST API для Mini App
 
+> Контракт V1. Новый MVP-контракт: [`max-mini-app-spec/04_api_contract.md`](max-mini-app-spec/04_api_contract.md).
+
 Базовый URL: `https://bot.example.com/api`
 
 Все endpoints (кроме `/healthz`) требуют заголовок `X-Auth-InitData` с подписанной MAX-строкой.

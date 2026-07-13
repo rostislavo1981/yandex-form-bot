@@ -1,5 +1,7 @@
 # Architecture
 
+> Архивная архитектура V1. Архитектура нового MVP: [`max-mini-app-spec/02_architecture.md`](max-mini-app-spec/02_architecture.md).
+
 ## Поток данных (end-to-end)
 
 ### 1. Отчёт прораба

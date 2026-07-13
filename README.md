@@ -1,5 +1,7 @@
 # Yandex Form Bot
 
+> Этот README описывает существующий V1. Окончательное ТЗ нового MVP (Mini App, динамические справочники, группа MAX, табели по объектам) находится в [`docs/max-mini-app-spec/SUMMARY.md`](docs/max-mini-app-spec/SUMMARY.md). Новый код по плану создаётся отдельно в `max_daily_report/`.
+
 MAX-бот + YandexGPT + Яндекс.Формы для ежедневных отчётов прорабов.
 
 ## Назначение

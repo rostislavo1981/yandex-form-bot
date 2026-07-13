@@ -1,186 +1,94 @@
 # 03. Модель данных
 
-Все таблицы — PostgreSQL 16. SQL-типы указаны в скобках. Первичные ключи — `BIGSERIAL`.
+PostgreSQL 16. PK — `BIGSERIAL`; время — `TIMESTAMPTZ`; количества — `NUMERIC(14,2)`.
 
-## Таблицы
+## Общие поля справочников
+
+`id`, `code UNIQUE`, `name`, `search_aliases TEXT`, `active BOOLEAN`, `sort_order INT`, `created_at`, `updated_at`.
+
+## Пользователи и MAX
 
 ### `users`
-Пользователи бота (прорабы, руководители).
 
-| Поле | Тип | Ограничения | Комментарий |
-|---|---|---|---|
-| `id` | BIGSERIAL | PK | |
-| `max_user_id` | VARCHAR(64) | UNIQUE NOT NULL | ID из MAX (строка) |
-| `full_name` | VARCHAR(200) | NOT NULL | Отображаемое имя |
-| `role` | VARCHAR(20) | NOT NULL, DEFAULT 'foreman' | `foreman` \| `manager` \| `admin` |
-| `active` | BOOLEAN | NOT NULL, DEFAULT true | |
-| `created_at` | TIMESTAMPTZ | NOT NULL, DEFAULT now() | |
+`max_user_id UNIQUE`, `full_name`, `role responsible|manager|admin`, `active`, `private_control_message_id`.
 
-### `contractors`
-Подрядные организации.
+### `max_groups`
 
-| Поле | Тип | Ограничения |
-|---|---|---|
-| `id` | BIGSERIAL | PK |
-| `name` | VARCHAR(250) | UNIQUE NOT NULL |
-| `active` | BOOLEAN | NOT NULL, DEFAULT true |
+`chat_id UNIQUE`, `title`, `active`, `control_message_id`, `timezone`, часы напоминаний и утренней сводки.
 
-### `objects`
-Строительные объекты. **Центральная сущность.**
+### `group_members`
 
-| Поле | Тип | Ограничения | Комментарий |
-|---|---|---|---|
-| `id` | BIGSERIAL | PK | |
-| `title_code` | VARCHAR(50) | UNIQUE NOT NULL | Уникальный титул, напр. `БОГ-КЛ-04` |
-| `name` | VARCHAR(250) | NOT NULL | Полное имя |
-| `execution_method` | VARCHAR(20) | NOT NULL | `own` \| `contractor` |
-| `default_contractor_id` | BIGINT | FK contractors.id NULL | Только если method=contractor |
-| `active` | BOOLEAN | NOT NULL, DEFAULT true | |
+`group_id`, `user_id`, `active`; UNIQUE `(group_id, user_id)`.
 
-**Правило:** если `execution_method='contractor'`, то `default_contractor_id IS NOT NULL` (CHECK).
+## Справочники
 
-### `stages`
-Этапы работ на объекте.
+- `contractors`
+- `objects`: дополнительно `execution_method own|contractor`, `default_contractor_id`.
+- `stages`
+- `object_stages`: `(object_id, stage_id, active)`.
+- `units`: дополнительно короткий символ `symbol`.
+- `equipment_types`: `default_unit_id`.
+- `work_types`: `default_unit_id`.
+- `work_methods`.
+- `work_type_methods`: допустимые способы для вида работ.
 
-| Поле | Тип | Ограничения |
-|---|---|---|
-| `id` | BIGSERIAL | PK |
-| `object_id` | BIGINT | FK objects.id, NOT NULL, ON DELETE CASCADE |
-| `name` | VARCHAR(250) | NOT NULL |
-| `active` | BOOLEAN | NOT NULL, DEFAULT true |
+Принадлежность техники (`own`, `rented`, `contractor`) хранится в строке отчёта, а не в названии техники.
 
-`UNIQUE (object_id, name)`.
+## Назначения и обязательства
 
-### `units`
-Единицы измерения.
+### `responsible_object_assignments`
 
-| Поле | Тип |
-|---|---|
-| `id` | BIGSERIAL PK |
-| `name` | VARCHAR(50) UNIQUE NOT NULL |
-| `code` | VARCHAR(20) UNIQUE NOT NULL |
+`user_id`, `object_id`, `active_from`, `active_to`, `schedule_type daily|weekdays`, `active`.
 
-Seed: `машино-час/mch`, `метр/m`, `м³/m3`, `штука/pcs`, `тонна/t`, `смена/shift`.
+### `report_obligations`
 
-### `equipment`
-Справочник техники.
+`report_date`, `assignment_id`, `user_id`, `object_id`, `status pending|submitted|late|missed|exempt`, `due_at`, `submitted_at`, `report_id`.
 
-| Поле | Тип |
-|---|---|
-| `id` | BIGSERIAL PK |
-| `category` | VARCHAR(100) NOT NULL |
-| `name` | VARCHAR(250) UNIQUE NOT NULL |
-| `default_unit_id` | BIGINT FK units.id NOT NULL |
-| `active` | BOOLEAN NOT NULL DEFAULT true |
+UNIQUE `(report_date, assignment_id)`.
 
-### `work_types`
-Справочник видов работ.
-
-| Поле | Тип |
-|---|---|
-| `id` | BIGSERIAL PK |
-| `category` | VARCHAR(100) NOT NULL |
-| `name` | VARCHAR(250) UNIQUE NOT NULL |
-| `default_unit_id` | BIGINT FK units.id NOT NULL |
-| `active` | BOOLEAN NOT NULL DEFAULT true |
+## Отчёты
 
 ### `daily_reports`
-Шапка ежедневного отчёта.
 
-| Поле | Тип | Комментарий |
-|---|---|---|
-| `id` | BIGSERIAL PK | |
-| `report_date` | DATE NOT NULL | Дата отчёта |
-| `responsible_user_id` | BIGINT FK users.id NOT NULL | Кто сдал |
-| `object_id` | BIGINT FK objects.id NOT NULL | |
-| `stage_id` | BIGINT FK stages.id NOT NULL | |
-| `contractor_id` | BIGINT FK contractors.id NULL | Обязателен если object.execution_method=contractor |
-| `comment` | TEXT NULL | |
-| `staff_itr` | INT NOT NULL DEFAULT 0 | Только для own |
-| `staff_internal` | INT NOT NULL DEFAULT 0 | Только для own |
-| `staff_external` | INT NOT NULL DEFAULT 0 | Только для own |
-| `soil_export_m3` | NUMERIC(12,2) NOT NULL DEFAULT 0 | Вывоз грунта |
-| `status` | VARCHAR(20) NOT NULL DEFAULT 'submitted' | MVP: только `submitted` |
-| `created_at` | TIMESTAMPTZ NOT NULL DEFAULT now() | |
-
-Индексы: `(report_date DESC)`, `(responsible_user_id, report_date)`, `(object_id, report_date)`.
-
-**CHECK:** `stage_id` должен принадлежать `object_id` (проверяется в API, не в CHECK — так проще).
+`report_date`, `responsible_user_id`, `object_id`, `stage_id`, `contractor_id`, `comment`, `staff_itr`, `staff_internal`, `staff_external`, `soil_export_m3`, `status submitted`, `idempotency_key UNIQUE`, `created_at`.
 
 ### `report_equipment`
-Строки техники в отчёте.
 
-| Поле | Тип |
-|---|---|
-| `id` | BIGSERIAL PK |
-| `report_id` | BIGINT FK daily_reports.id NOT NULL, ON DELETE CASCADE |
-| `equipment_id` | BIGINT FK equipment.id NOT NULL |
-| `equipment_name_snapshot` | VARCHAR(250) NOT NULL |
-| `unit_id` | BIGINT FK units.id NOT NULL |
-| `quantity` | NUMERIC(12,2) NOT NULL CHECK (quantity > 0) |
-| `ownership` | VARCHAR(20) NOT NULL | `own` \| `rented` \| `contractor` |
-| `comment` | TEXT NULL |
+`report_id`, `equipment_type_id`, `equipment_name_snapshot`, `ownership`, `unit_id`, `unit_name_snapshot`, `quantity`, `comment`.
 
 ### `report_works`
-Строки выполненных работ.
 
-| Поле | Тип |
-|---|---|
-| `id` | BIGSERIAL PK |
-| `report_id` | BIGINT FK daily_reports.id NOT NULL, ON DELETE CASCADE |
-| `work_type_id` | BIGINT FK work_types.id NOT NULL |
-| `work_name_snapshot` | VARCHAR(250) NOT NULL |
-| `unit_id` | BIGINT FK units.id NOT NULL |
-| `quantity` | NUMERIC(12,2) NOT NULL CHECK (quantity > 0) |
-| `method` | VARCHAR(100) NULL | «открытый», «ГНБ», «вручную» |
-| `comment` | TEXT NULL |
+`report_id`, `work_type_id`, `work_name_snapshot`, `work_method_id NULL`, `method_name_snapshot NULL`, `unit_id`, `unit_name_snapshot`, `quantity`, `comment`.
 
-## Snapshot-поля
+## Операционные таблицы
 
-`equipment_name_snapshot` и `work_name_snapshot` копируют текущее имя справочника в момент сохранения. Если справочник позже переименуют/деактивируют — исторические отчёты сохраняют то, что реально было.
+### `notification_log`
 
-## Seed-данные (для первого запуска)
+`notification_key UNIQUE`, `kind`, `group_id`, `report_date`, `payload_json`, `status pending|sent|failed`, `attempts`, `sent_at`, `external_message_id`, `last_error`.
 
-**users:**
-- `Казнадеев И.` (foreman, `max_user_id="dev-1"`)
-- `Иванов П.` (manager, `max_user_id="dev-2"`)
+Примеры ключей: `reminder:2026-07-14:19:00:group-1`, `morning:2026-07-14:group-1`, `report:42:group-1`.
 
-**contractors:**
-- `ООО "СтройМонтаж"`
-- `ООО "БКТП-Сервис"`
+### `outbox_events`
 
-**objects:**
-- `БОГ-КЛ-04 | Богословская КЛ 04кВ` (own)
-- `РСТИ-БКТП-3 | БКТП №3 Тамбасова` (contractor, default: БКТП-Сервис)
+`event_key UNIQUE`, `kind report_submitted|control_panel_refresh`, `payload_json`, `status pending|processing|done|failed`, `attempts`, `available_at`, `last_error`, `created_at`.
 
-**stages:**
-- БОГ-КЛ-04: `Разработка траншеи`, `Прокладка кабеля`, `Обратная засыпка`
-- РСТИ-БКТП-3: `Монтаж БКТП`, `Пусконаладка`
+Событие `report_submitted` создаётся в той же транзакции, что отчёт. Worker публикует карточку и отмечает событие выполненным.
 
-**equipment:**
-- `Землеройная / Экскаватор-погрузчик / машино-час`
-- `Землеройная / Экскаватор гусеничный / машино-час`
-- `Грузовая / Самосвал / машино-час`
-- `Подъёмная / Автокран / машино-час`
+### `catalog_imports`
 
-**work_types:**
-- `Земляные работы / Разработка траншеи / метр`
-- `Кабельные работы / Прокладка кабеля / метр`
-- `Земляные работы / Обратная засыпка / м³`
-- `Монтаж / Установка БКТП / штука`
+`filename`, `status uploaded|validated|applied|failed`, `summary_json`, `errors_json`, `created_by`, `created_at`, `applied_at`.
 
-Seed запускается один раз при старте, если таблица `users` пустая.
+## Инварианты
 
-## Инварианты (проверяются в API)
+1. Пользователь может отправить отчёт только по активному назначению; manager/admin могут действовать расширенно.
+2. Этап должен быть связан с объектом.
+3. Для contractor-объекта подрядчик обязателен.
+4. Хотя бы одно из: техника, работа, грунт, персонал больше нуля.
+5. Количества неотрицательны; строки техники/работ строго больше нуля.
+6. Способ работы должен быть допустим для вида работы.
+7. Report создаётся вместе со строками и обновлением obligation в одной транзакции.
+8. Исторические отчёты не меняются при переименовании справочников.
 
-1. `stage.object_id == report.object_id`.
-2. `object.execution_method == 'contractor' ⟹ report.contractor_id IS NOT NULL`.
-3. `object.execution_method == 'own' ⟹ report.contractor_id IS NULL` (или игнорируется).
-4. Хотя бы одно из: `equipment_rows`, `work_rows`, `soil_export_m3 > 0`.
-5. Все `quantity > 0`.
-6. Все `staff_* >= 0`.
-7. `unit_id` для строк должен существовать в `units`.
+## Табель
 
-## SQL-миграция начального состояния
-
-Оформляется как `backend/app/db/schema.sql` или через `Base.metadata.create_all()`. Alembic вводится в Phase 5.
+Табель не является отдельной таблицей. Он строится из `daily_reports`, `report_equipment`, `report_works` и `report_obligations`. Кэш/материализованное представление допускается только после измерения производительности.

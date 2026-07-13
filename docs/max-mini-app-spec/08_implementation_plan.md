@@ -1,250 +1,172 @@
-# 08. Пошаговый план реализации
+# 08. План коротких итераций
 
-Все фазы = отдельные ветки + PR + прогон тестов. Каждая фаза заканчивается **проверяемым критерием готовности** (Definition of Done). Слабой модели: **не переходить к следующей фазе, пока текущий DoD не выполнен**.
+## Правила для агента
 
-## Общие правила
+1. Выполняй только одну итерацию за сессию, если пользователь не попросил больше.
+2. Перед кодом прочитай только указанные для итерации документы.
+3. Не делай TODO следующей итерации.
+4. Добавь тест, запусти команды DoD, обнови `PROGRESS.md`, сделай один коммит.
+5. Если DoD красный — не переходи дальше и не маскируй ошибку.
+6. Не меняй контракт без записи в `DECISIONS.md`.
 
-- Работать в ветке `phase-N-<slug>`, мержить в `main` через PR.
-- В каждом коммите — один осмысленный шаг.
-- Перед PR: `make lint && make test` — обе команды зелёные.
-- Не менять файлы за пределами описанной фазы, если явно не сказано.
+Каждая итерация рассчитана примерно на 2–4 часа и должна оставлять запускаемое состояние.
 
----
+## I00 — Скелет
 
-## Phase 0 — Bootstrap (день 1)
+Читать: `SUMMARY.md`, `07_project_structure.md`.
 
-**Цель:** пустой репозиторий превращается в скелет, `make up` поднимает БД и пустой backend.
+Сделать: создать `max_daily_report/`, Python package, FastAPI `/api/health`, Settings, Dockerfile, compose с PostgreSQL, Makefile, один smoke test.
 
-**Задачи:**
-1. `git init`, `README.md` (копия `01_overview.md` кратко), `.gitignore`, `.dockerignore`, `LICENSE` (MIT).
-2. Создать структуру папок из `07_project_structure.md` (пустые файлы с `# TODO`).
-3. `docker-compose.yml`:
-   - `db`: postgres:16-alpine, healthcheck.
-   - `backend`: build из `./backend`, uvicorn `app.main:app --reload`, зависит от `db`.
-4. `backend/requirements.txt`:
-   ```
-   fastapi==0.115.*
-   uvicorn[standard]==0.32.*
-   sqlalchemy==2.0.*
-   asyncpg==0.29.*
-   pydantic==2.9.*
-   pydantic-settings==2.6.*
-   httpx==0.27.*
-   openpyxl==3.1.*
-   pytest==8.*
-   pytest-asyncio==0.24.*
-   ruff==0.7.*
-   ```
-5. `backend/Dockerfile` — python:3.12-slim + pip install.
-6. `backend/app/main.py` — минимальный `FastAPI()` с `/api/health` → `{"status":"ok"}`.
-7. `backend/app/config.py` — `Settings` (см. 07).
-8. `.env.example` создать, `.env` в `.gitignore`.
-9. `Makefile`.
+DoD: `docker compose up -d db`; `pytest`; `ruff check .`; health test 200.
 
-**DoD:**
-- `make up` работает, `curl localhost:8000/api/health` → `{"status":"ok"}`.
-- `docker compose logs backend` без ошибок.
-- Тестов ещё нет — это нормально.
+Не делать: модели предметной области, frontend, MAX.
 
----
+## I01 — База и миграции
 
-## Phase 1 — Модель данных и БД (день 2)
+Читать: `03_data_model.md`.
 
-**Цель:** таблицы созданы, справочники заполнены, `/api/bootstrap` отдаёт данные.
+Сделать: async SQLAlchemy, Alembic с первой миграцией для users/groups/catalogs и extension `pg_trgm`; test DB fixture.
 
-**Задачи:**
-1. `backend/app/database.py` — async engine, sessionmaker, `Base`, `get_db()`.
-2. `backend/app/models.py` — все таблицы из `03_data_model.md`.
-3. `backend/app/seed.py` — данные из `03_data_model.md` §Seed.
-4. `main.py` `lifespan`:
-   ```python
-   async with engine.begin() as conn:
-       await conn.run_sync(Base.metadata.create_all)
-   async with SessionLocal() as db:
-       await seed_if_empty(db)
-   ```
-5. `backend/app/schemas.py` — Pydantic-схемы для bootstrap (см. `04_api_contract.md`).
-6. `backend/app/repos/dict_repo.py` — `get_all_dictionaries()`.
-7. `backend/app/api/bootstrap.py` — `GET /api/bootstrap` (без auth пока).
-8. Подключить router в `main.py`.
-9. Первый тест: `tests/test_bootstrap.py` — вызывает `/api/bootstrap`, проверяет структуру.
+DoD: upgrade с пустой БД; downgrade/upgrade; тест видит таблицы.
 
-**DoD:**
-- `curl localhost:8000/api/bootstrap` возвращает JSON со всеми справочниками.
-- `pytest tests/test_bootstrap.py` — зелёный.
-- В БД появились строки из seed (проверить `docker compose exec db psql -U mvp -d mvp -c '\dt'`).
+Не делать: отчёты и Excel.
 
----
+## I02 — Seed справочников
 
-## Phase 2 — Создание и чтение отчётов (день 3–4)
+Сделать: минимальный seed users/objects/stages/units/equipment/work types и идемпотентную команду `python -m app.seed`.
 
-**Цель:** можно POST'ить отчёты и GET'ать их.
+DoD: два запуска не создают дубли; связи object-stage валидны.
 
-**Задачи:**
-1. `backend/app/schemas.py` — добавить `DailyReportIn`, `EquipmentRowIn`, `WorkRowIn`, `DailyReportOut`, `DailyReportListItem`.
-2. `backend/app/services/report_service.py`:
-   - `async def create_report(db, payload, user)` — валидирует инварианты, INSERT'ит шапку и строки, возвращает `DailyReport`.
-   - Все проверки из `03_data_model.md` §Инварианты.
-3. `backend/app/repos/report_repo.py`:
-   - `list_reports(filters, limit, offset)`
-   - `get_report(id)` с загрузкой связей (`selectinload`).
-4. `backend/app/api/reports.py`:
-   - `POST /api/reports` (пока без auth) → возвращает `{"id":.., "status":..}`.
-   - `GET /api/reports?date_from&date_to&object_id&responsible_user_id&mine&limit&offset`.
-   - `GET /api/reports/{id}`.
-5. Тесты:
-   - `test_reports_create.py`: успех, отсутствие подрядчика для contractor-объекта, чужой этап, пустое содержимое.
-   - `test_reports_list.py`: фильтр по датам.
+## I03 — Поиск каталогов
 
-**DoD:**
-- `pytest -k reports` — зелёный.
-- Ручной сценарий из `01_overview.md` §Happy Path (без бота) проходит через curl.
-- В БД реально создаются строки в `daily_reports`, `report_equipment`, `report_works`.
+Читать: `04_api_contract.md`, `13_catalogs_excel.md`.
 
----
+Сделать: endpoints objects, stages, equipment, work-types, methods, units; нормализация и pagination.
 
-## Phase 3 — Frontend MVP (день 5–7)
+DoD: тест поиска по части русского названия, code, alias; inactive не возвращается; этап чужого объекта не возвращается.
 
-**Цель:** форма в браузере, отправляет реальный POST, показывает успех.
+## I04 — Excel validate
 
-**Задачи:**
-1. `frontend/package.json`: React 18, react-dom, TypeScript, Vite.
-2. `frontend/Dockerfile` (multi-stage: node build → nginx static).
-3. Добавить в compose сервис `frontend` и `gateway` (nginx на 8080).
-4. `nginx.conf` — dev-версия (прокси на `frontend:5173` и `backend:8000/api/`).
-5. `src/api.ts` — типы + `ApiClient` с методами `bootstrap()`, `createReport()`, `listReports()`, `getSummary()`.
-6. `src/auth.ts`:
-   ```ts
-   export function getInitData(): string {
-     // @ts-ignore - MAX injects MaxApp; fallback for dev
-     return window.MaxApp?.initData || "dev-init";
-   }
-   ```
-7. `src/contexts/BootstrapContext.tsx` — fetch, кэш, provider.
-8. `src/pages/ReportForm.tsx` — экран из `06_frontend_spec.md` §Экран 1.
-9. `src/pages/Summary.tsx` — заглушка «в разработке» (реализуется в Phase 4).
-10. `src/App.tsx` — роутинг (или таб-переключение).
-11. `src/styles/main.css` — минимальный мобильный лейаут.
+Сделать: шаблон книги и endpoint validate без записи в каталоги.
 
-**DoD:**
-- `docker compose up` → открываем `http://localhost:8080/`, форма рендерится.
-- Тестовый сценарий из `01_overview.md`: выбрать объект БОГ-КЛ-04, этап, добавить технику, отправить → «✅ Отчёт №N».
-- Второй сценарий: подрядный объект РСТИ-БКТП-3 → показывается поле подрядчика, скрыт блок персонала.
-- Запись реально появилась в БД.
+DoD: valid preview показывает create/update; duplicate code и битая ссылка возвращают понятные ошибки; БД не изменилась.
 
----
+## I05 — Excel apply/export
 
-## Phase 4 — Сводная и Excel (день 8)
+Сделать: apply только validated import одной транзакцией; export текущих каталогов.
 
-**Цель:** экран сводной работает, скачивание xlsx работает.
+DoD: round-trip export→validate; ошибка откатывает всё; отсутствующая строка не деактивируется.
 
-**Задачи:**
-1. `backend/app/services/summary_service.py` — агрегаты SQL (`SUM`, `COUNT`, `GROUP BY object_id`).
-2. `backend/app/api/summary.py` — `GET /api/summary?date_from&date_to`.
-3. `backend/app/services/excel_service.py` — построение workbook: 3 листа как в `04_api_contract.md`.
-4. `backend/app/api/export.py` — StreamingResponse.
-5. `frontend/src/pages/Summary.tsx` — полная реализация из `06_frontend_spec.md` §Экран 2.
-6. Тесты: `test_summary.py`, `test_export_xlsx.py` (проверить, что файл открывается openpyxl и в нём 3 листа).
+## I06 — Модель отчётов и obligations
 
-**DoD:**
-- Экран `/summary` показывает карточки и список.
-- Кнопка «Excel» скачивает файл, он открывается в LibreOffice/Excel, содержит корректные данные.
-- Тесты зелёные.
+Читать: `03_data_model.md` разделы назначений и отчётов.
 
----
+Сделать: миграция assignments, obligations, reports, equipment/works, notification log, outbox events; сервис генерации obligations.
 
-## Phase 5 — Bot MAX + HMAC (день 9–11)
+DoD: assignment на 3 объекта создаёт 3 obligations; повторный запуск без дублей; weekdays исключает выходной.
 
-**Цель:** бот в MAX открывает Mini App; авторизация работает.
+## I07 — POST отчёта
 
-**Задачи:**
-1. `backend/app/webapp_auth.py` — `verify_init_data` по формуле MAX `HMAC_SHA256(auth_date + phone + user_id, bot_token)` (см. `05_max_integration.md` §5.12; ADR-008).
-2. `backend/app/deps.py` — `require_max_user` dependency.
-3. Подключить dependency ко всем `/api/*` кроме `/health`.
-4. **Dev-режим:** если `settings.app_env == "dev"` и `X-Auth-InitData` отсутствует — подставлять фикс-юзера. Реализовать через отдельный dependency, выбираемый в `deps.py` по env.
-5. `backend/app/max/client.py` — `MaxClient` с REST endpoints MAX: `POST /messages`, `GET /updates`, `POST /subscriptions`, `POST /answers`, `POST /uploads` (см. `05_max_integration.md` §5.4).
-6. `backend/app/max/handlers.py` — обработчики `/start`, `/report`, `/summary`, `/help`; события `message_created` и `message_callback`.
-7. `backend/app/max/poller.py` — цикл `get_updates` для dev; `backend/app/max/webhook.py` — endpoint `POST /webhook/max` для прода (см. ADR-009).
-8. `backend/app/bot.py`:
-   ```python
-   async def main():
-       settings = get_settings()
-       client = MaxClient(settings.max_bot_token, settings.max_api_base)
-       await client.set_my_commands([...])
-       await poller.run(client, handlers)
+Сделать: `POST /api/reports`, бизнес-инварианты, транзакция, idempotency, обновление obligation.
 
-   if __name__ == "__main__":
-       asyncio.run(main())
-   ```
-9. Добавить в compose сервис `bot`.
-10. Тесты `test_webapp_auth.py` (валидная/невалидная/протухшая подпись) и `test_max_client.py` (mock httpx).
-11. Frontend: обновить `auth.ts` — читать реальный `window.MaxApp?.initData`.
+DoD: happy path; повтор с тем же key возвращает тот же результат; чужой этап и недопустимый объект отвергаются; rollback проверен.
 
-**DoD:**
-- Получен токен от BotFather MAX.
-- Бот отвечает на `/start` в MAX.
-- Кнопка «Открыть форму» открывает Mini App, форма загружается, отчёт сохраняется.
-- Запрос без `X-Auth-InitData` возвращает 401 (в prod-режиме).
-- Тесты зелёные.
+## I08 — Чтение и статус
 
-> API MAX уже сверен с docs (см. ADR-008 и `05_max_integration.md`). Все `[непроверено]` собраны в §5.17 — их надо закрыть перед началом фазы, залогировав реальные updates от тестового бота.
+Сделать: list/detail reports и submission-status.
 
----
+DoD: expected/submitted/pending/late корректны на fixture с двумя людьми и тремя объектами; права responsible/manager проверены.
 
-## Phase 6 — Прод-деплой (день 12)
+## I09 — Frontend shell и auth
 
-**Цель:** приложение работает на VPS по HTTPS-домену.
+Читать: `05_max_integration.md`, `06_frontend_spec.md`.
 
-**Задачи:**
-1. `docker-compose.prod.yml` — те же сервисы + `caddy` вместо nginx.
-2. `Caddyfile`:
-   ```
-   <domain> {
-     encode gzip
-     handle /api/* {
-       reverse_proxy backend:8000
-     }
-     handle {
-       root * /srv/frontend/dist
-       try_files {path} /index.html
-       file_server
-     }
-   }
-   ```
-3. `deploy/install.sh` — скрипт первого развёртывания на Ubuntu (apt install docker, git clone, cp .env, `docker compose up -d`).
-4. Регистрация Mini App в BotFather MAX с prod-URL.
-5. Smoke-тест с реального телефона: `/report` → форма → отправка → запись в БД.
+Сделать: Vite React TS, routes, API client, MAX Bridge, backend verify initData, dev-only auth.
 
-**DoD:**
-- Сервер отвечает `https://<domain>/api/health` → 200.
-- В браузере на телефоне открывается по HTTPS.
-- MAX Mini App открывается по кнопке, работает end-to-end.
+DoD: TS build; unit tests официального validation vector; production без initData → 401; dev fallback не работает в prod.
 
----
+## I10 — SearchSelect и основные поля
 
-## Phase 7+ — на потом (не делать в MVP)
+Сделать: объект, этап, дата, ответственный, contractor; SearchSelect states.
 
-- Alembic-миграции.
-- Админка справочников через UI.
-- Черновики + PATCH-эндпоинт.
-- Фото/файлы (загрузка на S3-совместимое хранилище).
-- Webhook вместо polling.
-- LLM-парсер (адаптация из проекта `yandex-form-bot`).
-- Push-уведомления «не сдал отчёт до 20:00».
-- Redis для кэша bootstrap.
+DoD: поиск работает; смена объекта очищает этап; responsible видит только назначения; mobile smoke.
 
----
+## I11 — Техника и персонал
 
-## Оценка сроков
+Сделать: EquipmentRows, ownership отдельно, default unit, quantity; персонал.
 
-| Phase | Дни | Основная сложность |
-|---|---|---|
-| 0 | 1 | Инфра |
-| 1 | 1 | Модель |
-| 2 | 2 | Инварианты + тесты |
-| 3 | 3 | Frontend + условная логика UI |
-| 4 | 1 | Excel |
-| 5 | 3 | HMAC MAX + прод-подключение |
-| 6 | 1 | HTTPS + деплой |
+DoD: добавить/удалить две строки; единица подставляется; отрицательное и пустое не отправляется.
 
-**Итого: ~12 рабочих дней при одном разработчике.**
+## I12 — Работы и submit
+
+Сделать: WorkRows, допустимые способы, грунт, комментарий, submit с UUID key, success.
+
+DoD: полный сценарий UI→API→DB; двойной клик не создаёт дубль; понятны ошибки API.
+
+## I13 — MAX client и webhook
+
+Читать: `05_max_integration.md`, официальную MAX docs на дату реализации.
+
+Сделать: REST client `/messages`, `/subscriptions`, edit, pin; webhook с secret; handlers `bot_started`, callback/message buttons.
+
+DoD: mock HTTP проверяет URL/header/body; webhook reject bad secret; raw payload не содержит секретов в логах.
+
+## I14 — Видимые пульты
+
+Читать: `15_group_bot.md`.
+
+Сделать: клавиатуры, `ensure_group_control_panel`, `ensure_private_control_panel`, хранение message IDs, role-based actions.
+
+DoD: групповой пульт создаётся, обновляется и закрепляется; личный восстанавливается `/start` и `/menu`; повтор не плодит сообщения без причины.
+
+## I15 — Карточка после отчёта
+
+Сделать: создавать outbox event в транзакции отчёта; worker публикует краткую карточку и кнопки с retry и notification key.
+
+DoD: DB failure не создаёт публикацию; временная ошибка MAX оставляет retry; повтор не дублирует; карточка содержит объект, ФИО и итоги.
+
+## I16 — Табель API
+
+Читать: `14_timesheet.md`.
+
+Сделать: timesheet service/API отдельно по объекту.
+
+DoD: два объекта не смешиваются; разные units не складываются; personnel total/avg/max корректны; missing отличается от zero.
+
+## I17 — Табель UI
+
+Сделать: выбор объекта/периода, mobile table, sticky columns, категории и итоги.
+
+DoD: 31-дневный период читаем на мобильной ширине; loading/empty/error; responsible не открывает чужой объект.
+
+## I18 — Excel табеля
+
+Сделать: листы summary/status/object/raw, форматирование и download endpoint.
+
+DoD: workbook открывается openpyxl; каждый объект на своём листе; контрольные суммы равны API; имена листов безопасны.
+
+## I19 — Scheduler reminders
+
+Читать: `15_group_bot.md`.
+
+Сделать: worker, advisory lock, create obligations, два вечерних reminder jobs.
+
+DoD: показывает только pending; ФИО + объекты; второй запуск не дублирует; timezone test.
+
+## I20 — Утренняя сводка
+
+Сделать: pending прошлого дня → missed; expected/submitted/late/missed; кнопки status/timesheet/Excel.
+
+DoD: fixture 12/9/1/3 отображается правильно; список missing содержит ФИО и объекты; повтор безопасен.
+
+## I21 — Production deploy
+
+Сделать: Caddy HTTPS, compose app/scheduler/db/caddy, migrations at deploy, healthchecks, backup command, webhook registration runbook.
+
+DoD: чистый VPS поднимается по README; реальные group/private buttons; реальный submit; уведомление; scheduler dry-run; backup создаётся.
+
+## I22 — Приёмка MVP
+
+Пройти полный чек-лист `09_testing_plan.md`, исправить только blockers, обновить документацию и tag release candidate.
+
+DoD: все automated tests, lint, TS build, real MAX smoke, Excel reconciliation, user acceptance на одном ответственном и двух объектах.

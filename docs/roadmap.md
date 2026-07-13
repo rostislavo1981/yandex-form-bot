@@ -1,5 +1,7 @@
 # Roadmap
 
+> Исторический roadmap V1. Единственный актуальный backlog нового MVP: [`max-mini-app-spec/08_implementation_plan.md`](max-mini-app-spec/08_implementation_plan.md).
+
 ## v0.1.0 (current — MVP+1) ✅
 - [x] YandexGPT-парсер (12 полей формы)
 - [x] Playwright-заполнение Яндекс.Формы
