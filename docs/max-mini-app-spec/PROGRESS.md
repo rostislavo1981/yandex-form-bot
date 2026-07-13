@@ -4,74 +4,69 @@
 
 ## Текущий статус
 
-I00 завершена. Скелет `max_daily_report/` собран, PostgreSQL поднимается, health endpoint и smoke test работают.
+I01 завершена. Схема users/groups/catalogs создана через Alembic, test DB fixture работает на реальном PostgreSQL.
 
 | Итерация | Статус | Результат |
 |---|---|---|
 | I00 | COMPLETED | Скелет `max_daily_report/`, health, PostgreSQL compose, тест |
-| I01 | NEXT | База и миграции |
-| I02–I22 | WAIT | Выполняются строго по порядку |
+| I01 | COMPLETED | База и миграции |
+| I02 | NEXT | Seed справочников |
+| I03–I22 | WAIT | Выполняются строго по порядку |
 
-## Текущая итерация: I01
+## Текущая итерация: I02
 
-Следующий агент делает только I01 из `08_implementation_plan.md`.
+Следующий агент делает только I02 из `08_implementation_plan.md`.
 
-## Чек-лист I01
+## Чек-лист I02
 
-- [ ] Настроена async SQLAlchemy.
-- [ ] Инициализирован Alembic.
-- [ ] Первая миграция создаёт таблицы users/groups/catalogs и extension `pg_trgm`.
-- [ ] Есть fixture для test DB.
-- [ ] `alembic upgrade head` и `alembic downgrade -1` работают на чистой БД.
-- [ ] Тест видит таблицы через реальное подключение.
+- [ ] Минимальный seed users/objects/stages/units/equipment/work types.
+- [ ] Идемпотентная команда `python -m app.seed`.
+- [ ] Два запуска не создают дубли.
+- [ ] Связи object-stage валидны.
 - [ ] `pytest` и `ruff check .` зелёные.
 - [ ] Добавлен handoff и один коммит.
 
 ## HANDOFF NOTES
 
-### 2026-07-14 — I00 завершена
+### 2026-07-14 — I01 завершена
 
 **Агент:** kimi-k2.7-code:cloud
 **Ветка:** codex/i00-skeleton
-**Итерация:** I00 — Скелет
-**Коммит:** HEAD ветки `codex/i00-skeleton`
+**Итерация:** I01 — База и миграции
+**Коммит:** 64f60e1
 
 **Сделано:**
-- Создана подпапка `max_daily_report/` со своим Python-пакетом и изолированным конфигом.
-- Настроен `pyproject.toml` с FastAPI, Uvicorn, SQLAlchemy async, asyncpg, Alembic, pytest, ruff, mypy.
-- Реализован FastAPI endpoint `GET /api/health` через `app/api/health.py`.
-- Реализованы `app/config.py` (Pydantic Settings) и `app/database.py` (async engine + dependency).
-- Добавлен `docker-compose.yml` с PostgreSQL 16 и healthcheck; `docker compose up -d db` работает.
-- Добавлен `Dockerfile` и `Makefile` для установки, линта, тестов, запуска БД и API.
-- Добавлен `.env.example` без секретов.
-- Smoke test `tests/test_health.py` проверяет статус 200 и поля ответа.
+- Настроена async SQLAlchemy: `app/database.py`, `app/models/base.py`.
+- Инициализирован Alembic: `alembic.ini`, `app/migrations/env.py` с async-движком.
+- Созданы модели users (`users`, `max_groups`, `group_members`) и catalogs (`contractors`, `objects`, `stages`, `object_stages`, `units`, `equipment_types`, `work_types`, `work_methods`, `work_type_methods`).
+- Первая миграция `1a2e795e0f06` создаёт все таблицы и extension `pg_trgm`.
+- Добавлен test DB fixture в `tests/conftest.py` (sync psycopg2 для стабильности) с truncate всех таблиц перед каждым тестом.
+- Тест `tests/test_database.py` вставляет строки во все таблицы и проверяет чтение.
 
 **Не сделано:**
-- Предметные модели, frontend, MAX integration — вне scope I00.
+- Отчёты, Excel, MAX integration — вне scope I01.
 
 **Проверки:**
-- `cd max_daily_report && docker compose up -d db` → контейнер `mdr-db` Healthy.
-- `cd max_daily_report && make test` → 1 passed.
-- `cd max_daily_report && make lint` → All checks passed!
+- `../.venv/bin/alembic upgrade head` → OK.
+- `../.venv/bin/alembic downgrade base && ../.venv/bin/alembic upgrade head` → OK.
+- `make test` → 2 passed.
+- `make lint` → All checks passed!
 
 **Blocker/риск:**
-- Нет.
+- pytest-asyncio 0.23+ конфликтовал с asyncpg по event loop. Решено использованием sync psycopg2-binary только в тестах.
 
 **Следующий единственный шаг:**
-- I01: async SQLAlchemy + Alembic + первая миграция users/groups/catalogs + pg_trgm + test DB fixture.
+- I02: seed справочников (users/objects/stages/units/equipment/work types) + идемпотентная команда `python -m app.seed`.
 
 **Изменённые файлы:**
 - `max_daily_report/pyproject.toml`
-- `max_daily_report/.env.example`
-- `max_daily_report/Dockerfile`
-- `max_daily_report/docker-compose.yml`
-- `max_daily_report/Makefile`
-- `max_daily_report/app/__init__.py`
-- `max_daily_report/app/main.py`
-- `max_daily_report/app/config.py`
-- `max_daily_report/app/database.py`
-- `max_daily_report/app/api/__init__.py`
-- `max_daily_report/app/api/health.py`
-- `max_daily_report/app/py.typed`
-- `max_daily_report/tests/test_health.py`
+- `max_daily_report/alembic.ini`
+- `max_daily_report/app/migrations/env.py`
+- `max_daily_report/app/migrations/versions/1a2e795e0f06_initial_schema_users_groups_catalogs.py`
+- `max_daily_report/app/models/__init__.py`
+- `max_daily_report/app/models/base.py`
+- `max_daily_report/app/models/catalogs.py`
+- `max_daily_report/app/models/users.py`
+- `max_daily_report/tests/conftest.py`
+- `max_daily_report/tests/test_database.py`
 - `docs/max-mini-app-spec/PROGRESS.md`
