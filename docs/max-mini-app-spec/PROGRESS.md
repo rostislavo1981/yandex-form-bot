@@ -4,7 +4,7 @@
 
 ## Текущий статус
 
-I03 завершена. Поисковые endpoints каталогов работают с пагинацией и фильтрами.
+I04 завершена. Excel-шаблон и endpoint validate без изменения БД работают.
 
 | Итерация | Статус | Результат |
 |---|---|---|
@@ -12,48 +12,43 @@ I03 завершена. Поисковые endpoints каталогов рабо
 | I01 | COMPLETED | База и миграции |
 | I02 | COMPLETED | Seed справочников |
 | I03 | COMPLETED | Поиск каталогов |
-| I04 | NEXT | Excel validate |
-| I05–I22 | WAIT | Выполняются строго по порядку |
+| I04 | COMPLETED | Excel validate |
+| I05 | NEXT | Excel apply/export |
+| I06–I22 | WAIT | Выполняются строго по порядку |
 
-## Текущая итерация: I04
+## Текущая итерация: I05
 
-Следующий агент делает только I04 из `08_implementation_plan.md`.
+Следующий агент делает только I05 из `08_implementation_plan.md`.
 
-## Чек-лист I04
+## Чек-лист I05
 
-- [ ] Шаблон книги Excel для справочников.
-- [ ] Endpoint `/api/catalogs/import/validate` без записи в каталоги.
-- [ ] Valid preview показывает create/update.
-- [ ] Duplicate code и битая ссылка возвращают понятные ошибки.
-- [ ] БД не изменяется при validate.
+- [ ] `POST /api/catalogs/import/{import_id}/apply` — транзакционное применение проверенного импорта.
+- [ ] `GET /api/catalogs/export.xlsx` — экспорт текущих каталогов.
+- [ ] Round-trip export→validate.
+- [ ] Ошибка откатывает всё.
+- [ ] Отсутствующая строка не деактивируется.
 - [ ] `pytest` и `ruff check .` зелёные.
 - [ ] Добавлен handoff и один коммит.
 
 ## HANDOFF NOTES
 
-### 2026-07-14 — I03 завершена
+### 2026-07-14 — I04 завершена
 
 **Агент:** kimi-k2.7-code:cloud
 **Ветка:** codex/i00-skeleton
-**Итерация:** I03 — Поиск каталогов
-**Коммит:** 6a49eb0
+**Итерация:** I04 — Excel validate
+**Коммит:** 450e440
 
 **Сделано:**
-- Добавлены endpoints:
-  - `GET /api/catalogs/objects`
-  - `GET /api/catalogs/objects/{object_id}/stages`
-  - `GET /api/catalogs/equipment`
-  - `GET /api/catalogs/work-types`
-  - `GET /api/catalogs/work-types/{work_type_id}/methods`
-  - `GET /api/catalogs/units`
-- Реализован `CatalogService` с нормализацией query (lower/trim), пагинацией, фильтром `active=True`.
-- Этапы возвращаются только для указанного объекта через `ObjectStage`.
-- Способы работы возвращаются только для разрешённого вида работы через `WorkTypeMethod`.
-- Подключён `deps.py` для FastAPI Depends.
-- Тесты `tests/test_catalogs.py` проверяют поиск по русскому названию, code, исключение inactive, фильтрацию этапов по объекту и пагинацию.
+- Добавлен `app/services/excel_service.py` с `build_template()` и `CatalogImportValidator`.
+- Шаблон содержит листы: Users, Objects, Stages, ObjectStages, Contractors, Units, Equipment, WorkTypes, WorkMethods, WorkTypeMethods, Assignments.
+- Endpoint `POST /api/catalogs/import/validate` читает .xlsx, нормализует пробелы и булевы, проверяет обязательные поля, дубли code и enum-значения.
+- Возвращает preview `create/update/deactivate` и список ошибок. База не изменяется.
+- Добавлен `python-multipart` в зависимости для UploadFile.
+- Тесты `tests/test_excel_validate.py` покрывают: valid preview, duplicate code, invalid enum, non-xlsx rejection, template sheets.
 
 **Не сделано:**
-- Excel import/export; отчёты, MAX integration — далее по плану.
+- Apply импорта и экспорт каталогов (I05); отчёты, MAX — далее.
 
 **Проверки:**
 - `make test` → 153 passed.
@@ -63,13 +58,12 @@ I03 завершена. Поисковые endpoints каталогов рабо
 - Нет.
 
 **Следующий единственный шаг:**
-- I04: Excel-шаблон и endpoint `/api/catalogs/import/validate` без изменения БД.
+- I05: apply импорта одной транзакцией + export каталогов + round-trip test.
 
 **Изменённые файлы:**
+- `max_daily_report/pyproject.toml`
 - `max_daily_report/app/main.py`
-- `max_daily_report/app/deps.py`
-- `max_daily_report/app/api/catalogs.py`
-- `max_daily_report/app/schemas/catalogs.py`
-- `max_daily_report/app/services/catalog_service.py`
-- `max_daily_report/tests/test_catalogs.py`
+- `max_daily_report/app/api/import_export.py`
+- `max_daily_report/app/services/excel_service.py`
+- `max_daily_report/tests/test_excel_validate.py`
 - `docs/max-mini-app-spec/PROGRESS.md`

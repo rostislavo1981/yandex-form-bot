@@ -3,7 +3,7 @@ from __future__ import annotations
 import uvicorn
 from fastapi import FastAPI
 
-from app.api import catalogs, health
+from app.api import catalogs, health, import_export
 from app.config import settings
 
 
@@ -16,6 +16,7 @@ def create_app() -> FastAPI:
     )
     app.include_router(health.router)
     app.include_router(catalogs.router)
+    app.include_router(import_export.router)
     return app
 
 
