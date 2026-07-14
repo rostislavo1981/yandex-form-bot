@@ -4,7 +4,7 @@
 
 ## Текущий статус
 
-I14 завершена. Групповой/личный пульт управления.
+I15 завершена. Карточка после отчёта через outbox worker.
 
 | Итерация | Статус | Результат |
 |---|---|---|
@@ -23,55 +23,60 @@ I14 завершена. Групповой/личный пульт управл�
 | I12 | COMPLETED | Работы и submit |
 | I13 | COMPLETED | MAX REST client, webhook handler, тесты |
 | I14 | COMPLETED | Групповой/личный пульт управления |
-| I15–I22 | WAIT | Выполняются строго по порядку |
+| I15 | COMPLETED | Карточка после отчёта |
+| I16–I22 | WAIT | Выполняются строго по порядку |
 
-## Текущая итерация: I15
+## Текущая итерация: I16
 
-Следующий агент делает только I15 из `08_implementation_plan.md`.
+Следующий агент делает только I16 из `08_implementation_plan.md`.
 
-## Чек-лист I15
+## Чек-лист I16
 
-- [ ] Outbox event `report_submitted` создаётся в транзакции отчёта.
-- [ ] Worker публикует краткую карточку в группу с кнопками retry.
-- [ ] Notification key `report:{report_id}:{group_id}` предотвращает дубли.
-- [ ] Временная ошибка MAX оставляет retry.
-- [ ] Карточка содержит объект, ФИО, итоги.
+- [ ] Timesheet service/API отдельно по объекту.
+- [ ] Два объекта не смешиваются.
+- [ ] Разные units не складываются.
+- [ ] personnel total/avg/max корректны.
+- [ ] missing отличается от zero.
 - [ ] Тесты и lint зелёные.
 - [ ] Обновлён `PROGRESS.md` и один коммит.
 
 ## HANDOFF NOTES
 
-### 2026-07-14 — I14 завершена
+### 2026-07-14 — I15 завершена
 
 **Агент:** kimi-k2.7-code:cloud  
 **Ветка:** docs/max-mini-app-spec  
-**Итерация:** I14 — Видимые пульты  
+**Итерация:** I15 — Карточка после отчёта  
 **Коммит:** `<TBD>`
 
 **Сделано:**
 - Backend:
-  - `app/services/control_panel_service.py`: `ensure_group_control_panel`, `ensure_private_control_panel`, `refresh_group_panel_outbox`, `record_notification`.
-  - `app/api/control_panel.py`: endpoints `POST /api/control-panel/group/{id}/ensure`, `POST /api/control-panel/private/ensure`, `POST /api/control-panel/group/{id}/refresh`, `POST /api/control-panel/private/refresh` с role-based доступом.
-  - `app/main.py`: подключён `control_panel.router`.
-  - Групповой пульт: создаётся/обновляется, закрепляется, хранит `control_message_id`.
-  - Личный пульт: восстанавливается `/start` и `/menu` (через webhook + API), хранит `private_control_message_id`.
-  - Повторный вызов редактирует существующее сообщение вместо создания нового.
+  - `app/services/notification_worker.py`: `NotificationWorker` читает pending outbox events, публикует карточку отчёта в активную группу.
+  - Eager loading `works` + `equipment` через `selectinload` для async-сессии.
+  - Idempotency: notification key `report:{report_id}:{group_id}` + проверка `status == sent`.
+  - Retry: временные ошибки увеличивают `attempts`, оставляют `pending` до 5 попыток.
+  - Карточка содержит дату, объект, ФИО, работы, технику, грунт, персонал.
+  - Кнопки: "Повторить" и "Статус".
+  - `app/api/worker.py`: `POST /api/worker/process-outbox` для ручного/scheduler запуска.
+  - `app/main.py`: подключён `worker.router`.
 - Tests:
-  - `tests/test_control_panel.py`: auth, role checks, manager ensure, private refresh, outbox scheduling.
+  - `tests/test_notification_worker.py`: успешная публикация, idempotency, retry после ошибки.
+  - Добавлен `async_session` fixture в `tests/conftest.py` с `NullPool`.
 
 **Проверки:**
-- `make test` → 51 passed.
+- `make test` → 54 passed.
 - `make lint` → All checks passed!
 
 **Блокер/риск:**
 - Нет.
 
 **Следующий единственный шаг:**
-- I15: карточка после отчёта.
+- I16: табель API.
 
 **Изменённые файлы:**
-- `max_daily_report/app/services/control_panel_service.py` (new)
-- `max_daily_report/app/api/control_panel.py` (new)
+- `max_daily_report/app/services/notification_worker.py` (new)
+- `max_daily_report/app/api/worker.py` (new)
 - `max_daily_report/app/main.py`
-- `max_daily_report/tests/test_control_panel.py` (new)
+- `max_daily_report/tests/conftest.py`
+- `max_daily_report/tests/test_notification_worker.py` (new)
 - `docs/max-mini-app-spec/PROGRESS.md`

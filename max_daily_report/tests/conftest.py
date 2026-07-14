@@ -4,24 +4,40 @@ import os
 
 import pytest
 from sqlalchemy import create_engine, text
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import NullPool
 
 TEST_DATABASE_URL = os.environ.get(
     "TEST_DATABASE_URL",
     "postgresql+psycopg2://mdr_user:mdr_pass@localhost:5432/mdr_db",
 )
+ASYNC_TEST_DATABASE_URL = TEST_DATABASE_URL.replace(
+    "postgresql+psycopg2", "postgresql+asyncpg"
+)
 
 test_engine = create_engine(TEST_DATABASE_URL, future=True)
 TestSession = sessionmaker(test_engine)
 
+async_test_engine = create_async_engine(ASYNC_TEST_DATABASE_URL, future=True, poolclass=NullPool)
+AsyncTestSession = async_sessionmaker(async_test_engine, expire_on_commit=False)
 
-@pytest.fixture(scope="function", autouse=True)
+
+@pytest.fixture(scope="function")
 def db_session():
     """Provide a sync DB session for tests and rollback afterwards."""
     session = TestSession()
     yield session
     session.rollback()
     session.close()
+
+
+@pytest.fixture(scope="function")
+async def async_session():
+    """Provide an async DB session for tests and rollback afterwards."""
+    async with AsyncTestSession() as session:
+        yield session
+        await session.rollback()
 
 
 @pytest.fixture(scope="function", autouse=True)
