@@ -4,7 +4,7 @@
 
 ## Текущий статус
 
-I06 завершена. Модели отчётов, обязательств и сервис генерации obligations готовы.
+I07 завершена. Endpoint `POST /api/reports` сохраняет отчёты с инвариантами, idempotency и транзакцией.
 
 | Итерация | Статус | Результат |
 |---|---|---|
@@ -15,67 +15,78 @@ I06 завершена. Модели отчётов, обязательств и
 | I04 | COMPLETED | Excel validate |
 | I05 | COMPLETED | Excel apply/export |
 | I06 | COMPLETED | Модели отчётов и obligations |
-| I07–I22 | WAIT | Выполняются строго по порядку |
+| I07 | COMPLETED | POST отчёта |
+| I08–I22 | WAIT | Выполняются строго по порядку |
 
-## Текущая итерация: I07
+## Текущая итерация: I08
 
-Следующий агент делает только I07 из `08_implementation_plan.md`.
+Следующий агент делает только I08 из `08_implementation_plan.md`.
 
-## Чек-лист I07
+## Чек-лист I08
 
-- [ ] `POST /api/reports` — сохранение отчёта с idempotency key.
-- [ ] Бизнес-инварианты: объект+этап, contractor для contractor-объектов, допустимый способ работы.
-- [ ] Транзакция: отчёт + строки + обновление obligation + outbox event.
-- [ ] Повтор с тем же key возвращает тот же результат.
-- [ ] Чужой этап/объект/способ отвергаются; rollback проверен.
+- [ ] `GET /api/reports` — список отчётов с фильтрами.
+- [ ] `GET /api/reports/{id}` — полный отчёт (уже есть заглушка, нужно довести).
+- [ ] `GET /api/submission-status?date=` — статус сдачи по группе.
+- [ ] Права responsible/manager/admin.
 - [ ] Тесты pytest и ruff зелёные.
 - [ ] Добавлен handoff и один коммит.
 
 ## HANDOFF NOTES
 
-### 2026-07-14 — I06 завершена
+### 2026-07-14 — I07 завершена
 
 **Агент:** kimi-k2.7-code:cloud
 **Ветка:** codex/i00-skeleton
-**Итерация:** I06 — Модели отчётов и obligations
+**Итерация:** I07 — POST отчёта
 **Коммит:** `<TBD>`
 
 **Сделано:**
-- Добавлены модели в `app/models/reports.py`:
-  - `ResponsibleObjectAssignment` — назначение ответственного на объект с schedule_type daily/weekdays.
-  - `ReportObligation` — обязательство сдать отчёт на дату со статусами pending|submitted|late|missed|exempt.
-  - `DailyReport` — заголовок отчёта с полями персонала, грунта, комментария, idempotency_key.
-  - `ReportEquipment` / `ReportWork` — строки техники и работ со snapshot-ами имён и единиц.
-  - `NotificationLog` / `OutboxEvent` — операционные таблицы для уведомлений и событий.
-- Миграция `b8f81b9a3983_add_reports_obligations_assignments_...` создана Alembic, дополнена `DROP TYPE IF EXISTS ... CASCADE` для enum.
-- `ObligationService` в `app/services/obligation_service.py` генерирует obligations по диапазону дат:
-  - Учитывает `schedule_type == weekdays` (пропускает субботу/воскресенье).
-  - Идемпотентный: повторный запуск не создаёт дубли.
-  - Считает `created` и `skipped`.
-- Тесты `tests/test_obligations.py` покрывают:
-  - 3 объекта × 3 дня → 9 obligations.
-  - Weekdays исключает выходные.
-  - Повторная генерация не дублирует записи.
+- Добавлен `app/schemas/reports.py`:
+  - `ReportCreateRequest`, `EquipmentInput`, `WorkInput`, `StaffInput`.
+  - Валидация ownership, положительных quantity, обязательности хотя бы одного блока.
+- Добавлен `app/services/report_service.py`:
+  - Транзакционное создание отчёта, строк техники/работ, обновление obligation, outbox event.
+  - Idempotency по `idempotency_key`.
+  - Бизнес-инварианты:
+    - объект/этап существуют и активны;
+    - этап связан с объектом;
+    - contractor-объект требует `contractor_id`;
+    - пользователь имеет активное назначение на объект на дату отчёта;
+    - способ работы допустим для вида работы;
+    - отчёт содержит хотя бы одно из: техника, работы, грунт, персонал.
+  - Обработка idempotent повторов без дублирования outbox-событий.
+- Добавлен `app/api/reports.py`:
+  - `POST /api/reports` с обязательным `Idempotency-Key`.
+  - `GET /api/reports/{id}` с полным отчётом.
+  - Dev-only middleware создаёт/использует реального `dev-user` в БД.
+- `app/main.py` подключает `reports.router` и dev-auth middleware.
+- Тесты `tests/test_reports.py` покрывают:
+  - Happy path с техникой, работами, грунтом, персоналом.
+  - Требование contractor для contractor-объекта.
+  - Отклонение чужого этапа.
+  - Idempotency (повторный запрос возвращает тот же id).
+  - Откат при недопустимом/несуществующем способе работы.
+  - Получение деталей отчёта.
 
 **Не сделано:**
-- `POST /api/reports`, валидация и транзакция сохранения отчёта (I07).
+- Список отчётов, submission-status, права по ролям (I08).
 - Frontend, MAX-интеграция — далее.
 
 **Проверки:**
-- `alembic downgrade base && alembic upgrade head` → OK.
-- `make test` → 28 passed.
+- `make test` → 34 passed.
 - `make lint` → All checks passed!
+- `alembic upgrade head` → OK.
 
 **Blocker/риск:**
 - Нет.
 
 **Следующий единственный шаг:**
-- I07: endpoint POST /api/reports с бизнес-инвариантами и транзакцией.
+- I08: список отчётов, submission-status, права.
 
 **Изменённые файлы:**
-- `max_daily_report/app/models/reports.py`
-- `max_daily_report/app/models/__init__.py`
-- `max_daily_report/app/services/obligation_service.py`
-- `max_daily_report/app/migrations/versions/b8f81b9a3983_add_reports_obligations_assignments_.py`
-- `max_daily_report/tests/test_obligations.py`
+- `max_daily_report/app/main.py`
+- `max_daily_report/app/api/reports.py`
+- `max_daily_report/app/schemas/reports.py`
+- `max_daily_report/app/services/report_service.py`
+- `max_daily_report/tests/test_reports.py`
 - `docs/max-mini-app-spec/PROGRESS.md`
