@@ -1,3 +1,7 @@
-:80 {
+# DOMAIN не задан (или ":80") — локальный HTTP-режим (Docker smoke на Mac).
+# DOMAIN=example.com — Caddy сам получит Let's Encrypt сертификат (HTTPS
+# обязателен для MAX Mini App в продакшене).
+{$DOMAIN::80} {
+    encode gzip
     reverse_proxy api:8000
 }

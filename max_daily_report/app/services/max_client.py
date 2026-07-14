@@ -17,6 +17,33 @@ def _headers() -> dict[str, str]:
     }
 
 
+def _keyboard_attachment(rows: list[list[dict[str, Any]]]) -> dict[str, Any]:
+    """Attachment inline_keyboard по схеме dev.max.ru: payload.buttons,
+    кнопка = {type, text, payload}.
+
+    Внутренний формат кнопок ({"text", "callback_data"}) конвертируется здесь,
+    чтобы обработчики и билдеры клавиатур не зависели от wire-формата.
+    [непроверено] точные имена полей сверить с ответом реального API
+    перед продом (см. 05_max_integration.md §5.17).
+    """
+    buttons = []
+    for row in rows:
+        converted_row = []
+        for button in row:
+            if "callback_data" in button:
+                converted_row.append(
+                    {
+                        "type": "callback",
+                        "text": button["text"],
+                        "payload": button["callback_data"],
+                    }
+                )
+            else:
+                converted_row.append(button)
+        buttons.append(converted_row)
+    return {"type": "inline_keyboard", "payload": {"buttons": buttons}}
+
+
 class MAXClient:
     """Async REST client for MAX Bot API."""
 
@@ -36,7 +63,7 @@ class MAXClient:
             payload["attachments"] = attachments
         if inline_keyboard:
             payload["attachments"] = payload.get("attachments", []) + [
-                {"type": "inline_keyboard", "inline_keyboard": inline_keyboard}
+                _keyboard_attachment(inline_keyboard)
             ]
         response = await self._client.post(
             f"{self._base_url}/messages",
@@ -55,9 +82,7 @@ class MAXClient:
     ) -> dict[str, Any]:
         payload: dict[str, Any] = {"chatId": chat_id, "msgId": message_id, "text": text}
         if inline_keyboard:
-            payload["attachments"] = [
-                {"type": "inline_keyboard", "inline_keyboard": inline_keyboard}
-            ]
+            payload["attachments"] = [_keyboard_attachment(inline_keyboard)]
         response = await self._client.put(
             f"{self._base_url}/messages",
             headers=_headers(),

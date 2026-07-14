@@ -227,7 +227,7 @@ class NotificationLog(Base):
         ForeignKey("max_groups.id"), nullable=True
     )
     report_date: Mapped[Date | None] = mapped_column(Date, nullable=True)
-    payload_json: Mapped[dict | None] = mapped_column(Text, nullable=True)
+    payload_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(
         Enum("pending", "sent", "failed", name="notification_status"),
         default="pending",
@@ -264,7 +264,7 @@ class OutboxEvent(Base):
         ),
         nullable=False,
     )
-    payload_json: Mapped[dict | None] = mapped_column(Text, nullable=True)
+    payload_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(
         Enum(
             "pending",

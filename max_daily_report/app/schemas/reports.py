@@ -47,6 +47,8 @@ class ReportCreateRequest(BaseModel):
     object_id: int
     stage_id: int
     contractor_id: int | None = None
+    # Подмена ответственного: заполняется только manager/admin (спека UX)
+    responsible_user_id: int | None = None
     staff: StaffInput = Field(default_factory=StaffInput)
     soil_export_m3: Decimal | None = Field(default=None, ge=0)
     equipment: list[EquipmentInput] = Field(default_factory=list)

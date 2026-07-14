@@ -55,11 +55,12 @@ class ReportService:
         if existing is not None:
             return existing
 
-        await self._validate(user, data)
+        responsible = await self._resolve_responsible(user, data)
+        await self._validate(responsible, data)
 
         report = DailyReport(
             report_date=data.report_date,
-            responsible_user_id=user.id,
+            responsible_user_id=responsible.id,
             object_id=data.object_id,
             stage_id=data.stage_id,
             contractor_id=data.contractor_id,
@@ -121,10 +122,25 @@ class ReportService:
                 )
             )
 
-        await self._update_obligation(report, user.id)
+        await self._update_obligation(report, responsible.id)
         await self._create_outbox_event(report)
         await self._session.commit()
         return report
+
+    async def _resolve_responsible(
+        self, user: User, data: ReportCreateRequest
+    ) -> User:
+        """Отчёт пишется на автора; подмена — только для manager/admin."""
+        if data.responsible_user_id is None or data.responsible_user_id == user.id:
+            return user
+        if user.role not in ("manager", "admin"):
+            raise ReportValidationError(
+                "Подмена ответственного доступна только руководителю"
+            )
+        target = await self._get(User, data.responsible_user_id)
+        if target is None or not target.active:
+            raise ReportValidationError("responsible user not found")
+        return target
 
     async def list_reports(
         self,
@@ -162,47 +178,28 @@ class ReportService:
         user: User,
         target_date: date,
     ) -> dict:
+        obligations_stmt = (
+            select(ReportObligation, User.full_name, Object.code)
+            .join(User, ReportObligation.user_id == User.id)
+            .join(Object, ReportObligation.object_id == Object.id)
+            .where(ReportObligation.report_date == target_date)
+        )
         if user.role == "responsible":
-            obligations_stmt = select(ReportObligation).where(
-                ReportObligation.report_date == target_date,
-                ReportObligation.user_id == user.id,
-            )
-        else:
-            obligations_stmt = select(ReportObligation).where(
-                ReportObligation.report_date == target_date
+            obligations_stmt = obligations_stmt.where(
+                ReportObligation.user_id == user.id
             )
         result = await self._session.execute(obligations_stmt)
-        obligations = result.scalars().all()
+        rows = result.all()
 
-        expected = len(obligations)
-        submitted = sum(1 for o in obligations if o.status == "submitted")
-        late = sum(1 for o in obligations if o.status == "late")
-        pending = sum(1 for o in obligations if o.status == "pending")
-        missing = []
-        for o in obligations:
-            if o.status in ("pending", "missed"):
-                user_name = ""
-                object_code = ""
-                if o.user_id is not None:
-                    user_result = await self._session.execute(
-                        select(User).where(User.id == o.user_id)
-                    )
-                    user = user_result.scalar_one_or_none()
-                    if user is not None:
-                        user_name = user.full_name
-                if o.object_id is not None:
-                    object_result = await self._session.execute(
-                        select(Object).where(Object.id == o.object_id)
-                    )
-                    obj = object_result.scalar_one_or_none()
-                    if obj is not None:
-                        object_code = obj.code
-                missing.append(
-                    {
-                        "responsible": user_name,
-                        "object_code": object_code,
-                    }
-                )
+        expected = len(rows)
+        submitted = sum(1 for o, _, _ in rows if o.status == "submitted")
+        late = sum(1 for o, _, _ in rows if o.status == "late")
+        pending = sum(1 for o, _, _ in rows if o.status == "pending")
+        missing = [
+            {"responsible": full_name, "object_code": object_code}
+            for o, full_name, object_code in rows
+            if o.status in ("pending", "missed")
+        ]
         return {
             "expected": expected,
             "submitted": submitted,
@@ -360,7 +357,7 @@ class ReportService:
         self._session.add(event)
         await self._session.flush()
 
-    async def _get(self, model_cls, ident: int | None) -> any:
+    async def _get(self, model_cls, ident: int | None):
         if ident is None:
             return None
         result = await self._session.execute(

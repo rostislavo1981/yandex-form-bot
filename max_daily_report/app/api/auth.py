@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import time
-from urllib.parse import parse_qsl, unquote
+from urllib.parse import parse_qsl
 
 from fastapi import APIRouter, Header, HTTPException, Request, status
 from pydantic import BaseModel
@@ -54,8 +54,9 @@ def _validate_init_data(raw: str) -> dict[str, str]:
     data = _parse_init_data(raw)
     received_hash = data.pop("hash")
 
-    # sort keys and build launch_params
-    params = [f"{k}={unquote(v)}" for k, v in sorted(data.items())]
+    # parse_qsl уже URL-декодировал значения — повторный unquote исказил бы
+    # строки, содержащие %-последовательности (двойное декодирование)
+    params = [f"{k}={v}" for k, v in sorted(data.items())]
     launch_params = "\n".join(params)
 
     secret_key = hmac.new(
@@ -134,12 +135,13 @@ async def resolve_user_from_init_data(init_data: str | None) -> User:
             detail="invalid user payload",
         ) from exc
 
-    max_user_id = str(user_info.get("id"))
-    if not max_user_id:
+    raw_user_id = user_info.get("id")
+    if raw_user_id is None or raw_user_id == "":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="user id missing",
         )
+    max_user_id = str(raw_user_id)
 
     async with AsyncSessionLocal() as session:
         result = await session.execute(

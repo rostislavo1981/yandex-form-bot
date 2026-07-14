@@ -210,7 +210,7 @@ class SchedulerService:
 
     async def _pending_obligations(
         self,
-        group_id: int,
+        group_id: int,  # noqa: ARG002 — MVP: одна группа, фильтр по группе не нужен
         target_date: date,
     ) -> list[dict[str, Any]]:
         result = await self._session.execute(
