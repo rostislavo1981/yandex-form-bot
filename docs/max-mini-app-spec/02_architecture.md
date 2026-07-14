@@ -12,11 +12,17 @@ MAX group / private bot
              ▼
 ┌─────────────────────────────────────┐
 │ FastAPI app                         │
-│ /webhook/max                        │
-│ /api/auth, /api/catalogs            │
-│ /api/admin/catalogs                 │
-│ /api/reports, /api/timesheet        │
-│ /api/import, /api/export.xlsx       │
+│ /api/health                         │
+│ /api/auth/me                        │
+│ /api/webhook/max                    │
+│ /api/catalogs/*                     │
+│ /api/admin/catalogs/*               │
+│ /api/reports, /api/submission-status│
+│ /api/timesheet/*                    │
+│ /api/control-panel/*                │
+│ /api/scheduler/*                    │
+│ /api/worker/process-outbox          │
+│ /api/catalogs/{import,export}.xlsx  │
 │ собранная статика Mini App          │
 └────────────────┬────────────────────┘
                  │ SQLAlchemy async
@@ -37,7 +43,7 @@ Caddy: HTTPS и reverse proxy на app
 ## Поток отправки
 
 1. Кнопка `open_app` открывает Mini App.
-2. Frontend передаёт `window.WebApp.initData` в `X-Auth-InitData`.
+2. Frontend передаёт `window.WebApp.initData` в заголовок `X-Init-Data`.
 3. Backend проверяет подпись и находит пользователя по MAX ID.
 4. Каталоги загружаются поисковыми запросами, а не одним гигантским списком.
 5. `POST /api/reports` в одной транзакции сохраняет шапку и строки.
@@ -65,6 +71,10 @@ Caddy: HTTPS и reverse proxy на app
 
 Каталоги имеют `code`, `name`, `search_aliases`, `active`, `sort_order`. Поиск выполняется на backend по нормализованной строке; для PostgreSQL используется `pg_trgm`. Frontend запрашивает не более 20–50 результатов с debounce.
 
+## Dev-режим
+
+При `APP_ENV=dev` (а не только `DEBUG=true`) backend добавляет dev-only middleware: все API-запросы без реального `initData` привязываются к placeholder-пользователю `dev-user`. Frontend в production-сборке может использовать `VITE_ALLOW_DEV_AUTH=true`, чтобы отправлять `X-Init-Data: dev` — это нужно только для локального теста в браузере. В production с реальным MAX dev-auth отключён.
+
 ## Надёжность
 
 - Все изменения отчёта — одна транзакция.
@@ -73,3 +83,5 @@ Caddy: HTTPS и reverse proxy на app
 - В строках отчёта сохраняются snapshot-названия.
 - Scheduler/outbox worker используют уникальные keys и PostgreSQL lock.
 - В production используется MAX webhook и HTTPS.
+- SPA-fallback в FastAPI отдаёт `index.html` для любого пути, кроме `/api/*` и `/assets/*`, чтобы глубокие frontend-маршруты (`/admin/catalogs`) работали после reload.
+

@@ -1,70 +1,93 @@
 # 04. API-контракт MVP
 
-Все `/api/*`, кроме `/api/health`, требуют заголовок `X-Init-Data`. Ошибка: `{"detail":"Сообщение по-русски"}`.
+Актуальность: 2026-07-14. Все `/api/*`, кроме `/api/health`, требуют заголовок `X-Init-Data`. Ошибки возвращаются как `{"detail":"Сообщение по-русски"}`.
 
 ## Системные endpoints
 
 - `GET /api/health` → `{"status":"ok","version":"..."}`.
-- `POST /api/webhook/max` — updates MAX, защищён webhook secret по официальному контракту.
-- `GET /api/auth/me` — текущий пользователь, роль, группа и назначенные объекты.
-- `POST /api/webhook/max` — входящий webhook от MAX (защищён `X-Hub-Signature`-подобным секретом).
+- `GET /api/auth/me` → текущий пользователь, роль, активность:
 
-## Каталоги
+  ```json
+  {
+    "user": {
+      "id": 1,
+      "max_user_id": "max-resp-1",
+      "full_name": "Иванов А. Б.",
+      "role": "responsible",
+      "active": true
+    }
+  }
+  ```
 
-Все поисковые endpoints принимают `q`, `limit` (default 20, max 50), `offset`.
+- `POST /api/webhook/max` — входящий webhook от MAX. Подпись проверяется по `x-signature` (HMAC-SHA256) или официальному контракту MAX, действующему на дату реализации.
 
-- `GET /api/catalogs/objects?q=` — только разрешённые пользователю объекты.
-- `GET /api/catalogs/objects/{id}/stages?q=`.
-- `GET /api/catalogs/equipment?q=`.
-- `GET /api/catalogs/work-types?q=&stage_id=`.
-- `GET /api/catalogs/work-types/{id}/methods`.
-- `GET /api/catalogs/units`.
-- `GET /api/catalogs/contractors?q=`.
+## Поисковые каталоги
 
-Ответ списка:
+Префикс `/api/catalogs`. Все поисковые endpoints принимают `q`, `limit` (default 20, max 50), `offset`. Возвращают:
 
 ```json
 {"items":[{"id":42,"code":"OBJ-BOG-04","name":"Богословская КЛ 0,4 кВ"}],"total":1}
 ```
 
+- `GET /api/catalogs/objects?q=` — только разрешённые пользователю объекты (manager/admin видят все; responsible — только по назначениям).
+- `GET /api/catalogs/objects/{id}/stages?q=` — этапы, связанные с объектом.
+- `GET /api/catalogs/equipment?q=`.
+- `GET /api/catalogs/work-types?q=`.
+- `GET /api/catalogs/work-types/{id}/methods` — допустимые способы для вида работы.
+- `GET /api/catalogs/units` — ответ `UnitListResponse` добавляет `symbol`.
+- `GET /api/catalogs/contractors?q=`.
+
 ## Admin каталоги
 
-Доступ: роль `manager` или `admin`. Удаление — soft-delete (`active = false`).
+Префикс `/api/admin/catalogs`. Доступ: роль `manager` или `admin`. Удаление — soft-delete (`active = false`).
 
-Общий префикс: `/api/admin/catalogs`.
+### Базовые справочники (CRUD + soft-delete)
 
-- `GET /api/admin/catalogs/objects` — список.
-- `POST /api/admin/catalogs/objects` — создать.
-- `PUT /api/admin/catalogs/objects/{id}` — обновить.
-- `DELETE /api/admin/catalogs/objects/{id}` — деактивировать.
+Для всех ниже: `GET /`, `POST /`, `PUT /{id}`, `DELETE /{id}`.
 
-Аналогично:
+- `/api/admin/catalogs/objects` — поля: `code`, `name`, `active`, `sort_order`, `execution_method` (`own`|`contractor`), `default_contractor_id`.
+- `/api/admin/catalogs/stages` — поля: `code`, `name`, `active`, `sort_order`.
+- `/api/admin/catalogs/contractors` — поля: `code`, `name`, `active`, `sort_order`.
+- `/api/admin/catalogs/units` — поля: `code`, `name`, `symbol`, `active`, `sort_order`.
+- `/api/admin/catalogs/equipment` — поля: `code`, `name`, `active`, `sort_order`, `default_unit_id`.
+- `/api/admin/catalogs/work-types` — поля: `code`, `name`, `active`, `sort_order`, `default_unit_id`.
+- `/api/admin/catalogs/work-methods` — поля: `code`, `name`, `active`, `sort_order`.
 
-- `/api/admin/catalogs/stages`
-- `/api/admin/catalogs/contractors`
-- `/api/admin/catalogs/units`
-- `/api/admin/catalogs/equipment`
-- `/api/admin/catalogs/work-types`
-- `/api/admin/catalogs/work-methods`
-
-Связные таблицы (только create/delete):
+### Связные таблицы (create/delete)
 
 - `GET /api/admin/catalogs/object-stages`
-- `POST /api/admin/catalogs/object-stages` (`object_id`, `stage_id`, `active`)
+- `POST /api/admin/catalogs/object-stages` — `{"object_id": 1, "stage_id": 2, "active": true}`
 - `DELETE /api/admin/catalogs/object-stages/{id}`
+
+  Ответ списка дополняет `object_code`, `stage_code`.
+
 - `GET /api/admin/catalogs/work-type-methods`
-- `POST /api/admin/catalogs/work-type-methods` (`work_type_id`, `work_method_id`, `active`)
+- `POST /api/admin/catalogs/work-type-methods` — `{"work_type_id": 1, "work_method_id": 2, "active": true}`
 - `DELETE /api/admin/catalogs/work-type-methods/{id}`
 
-Назначения и пользователи:
+  Ответ списка дополняет `work_type_code`, `work_method_code`.
+
+### Назначения и пользователи
 
 - `GET /api/admin/catalogs/assignments`
-- `POST /api/admin/catalogs/assignments` (`user_id`, `object_id`, `active_from`, `active_to`, `schedule_type`, `active`)
+- `POST /api/admin/catalogs/assignments` — `{"user_id": 1, "object_id": 2, "active_from": "2026-01-01", "active_to": "2026-12-31", "schedule_type": "daily", "active": true}`
 - `DELETE /api/admin/catalogs/assignments/{id}`
+
+  Ответ списка дополняет `user_name`, `object_code`.
+
 - `GET /api/admin/catalogs/users`
-- `POST /api/admin/catalogs/users` (`max_user_id`, `full_name`, `role`, `active`)
+- `POST /api/admin/catalogs/users` — `{"max_user_id": "max-user-1", "full_name": "...", "role": "responsible", "active": true}`
 - `PUT /api/admin/catalogs/users/{id}`
 - `DELETE /api/admin/catalogs/users/{id}`
+
+### Панели управления MAX
+
+Префикс `/api/control-panel` (manager/admin, кроме private-ensure/refresh, доступных также responsible).
+
+- `POST /api/control-panel/group/{group_id}/ensure` — создать/обновить и закрепить групповой пульт.
+- `POST /api/control-panel/private/ensure` — создать/обновить личный пульт текущего пользователя.
+- `POST /api/control-panel/group/{group_id}/refresh` — поставить в outbox задачу обновления группового пульта.
+- `POST /api/control-panel/private/refresh` — обновить личный пульт.
 
 ## Отчёты
 
@@ -86,10 +109,14 @@
 }
 ```
 
-Response 201: `{"id":42,"status":"submitted","late":false}`.
+Response 201:
 
-- `GET /api/reports?date_from=&date_to=&object_id=&responsible_user_id=&limit=&offset=`.
-- `GET /api/reports/{id}` — полный отчёт.
+```json
+{"id":42,"status":"submitted","late":false}
+```
+
+- `GET /api/reports?date_from=&date_to=&object_id=&responsible_user_id=&limit=&offset=` — список полных отчётов.
+- `GET /api/reports/{id}` — полный отчёт с equipment и works.
 - Изменение/удаление отчёта не входит в MVP.
 
 ## Статус сдачи
@@ -130,9 +157,21 @@ Response 201: `{"id":42,"status":"submitted","late":false}`.
 
 ## Excel-справочники (admin)
 
-- `GET /api/catalogs/template.xlsx`.
-- `GET /api/catalogs/export.xlsx`.
-- `POST /api/catalogs/import/validate` — загрузка и preview без изменений.
-- `POST /api/catalogs/import/{import_id}/apply` — *зарезервировано; не реализовано*. В текущей версии применение выполняется сразу через `POST /api/catalogs/import/apply`.
+Префикс `/api/catalogs`.
 
-Импорт напрямую без validate запрещён.
+- `GET /api/catalogs/template.xlsx` — пустой шаблон для bulk-импорта.
+- `GET /api/catalogs/export.xlsx` — экспорт текущих активных справочников.
+- `POST /api/catalogs/import/validate` — загрузка и preview без изменений. Возвращает `{"valid": true|false, "create": {...}, "update": {...}, "deactivate": {...}, "errors": [...]}`.
+- `POST /api/catalogs/import/apply` — валидация + применение одной транзакцией. Возвращает `{"id": 1, "status": "applied", "preview": {...}, "errors": [...]}`.
+- `POST /api/catalogs/import/{import_id}/apply` — **зарезервировано; не реализовано** (вернёт 501). Стадийный staged apply по ранее сохранённому `catalog_imports.id` будет добавлен позже, если потребуется отдельная кнопка «подтвердить».
+
+Импорт напрямую без validate запрещён: `POST /api/catalogs/import/apply` сам выполняет валидацию и откатывает всё при ошибках.
+
+## Scheduler / worker
+
+Внутренние HTTP-эндпоинты, вызываемые контейнером scheduler или cron/healthcheck.
+
+- `POST /api/scheduler/morning?target_date=YYYY-MM-DD` — создать obligations на день (advisory lock).
+- `POST /api/scheduler/evening-reminder?group_id=1&reminder_number=1` — вечернее напоминание (advisory lock).
+- `POST /api/scheduler/morning-summary?group_id=1&target_date=YYYY-MM-DD` — утренняя сводка (advisory lock).
+- `POST /api/worker/process-outbox?limit=50` — обработать pending outbox-события (карточки отчётов, обновление пультов).

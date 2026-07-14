@@ -9,7 +9,7 @@
 - `/timesheet` — табель по объекту и периоду.
 - `/status` — статус сдачи (manager/admin).
 - `/admin/catalogs` — управление справочниками (manager/admin): табы, inline CRUD, Excel import/export. Для связных таблиц (`object-stages`, `work-type-methods`, `assignments`) и полей `default_unit_id`/`default_contractor_id` используются выпадающие подсказки по коду/названию вместо сырых ID.
-- `/catalog-import` — прямой upload/preview/apply Excel (admin; резерв).
+- `/catalog-import` — прямой upload/preview/apply Excel (admin; резерв). В текущей версии bulk-импорт выполняется сразу через `/admin/catalogs`.
 
 ## Форма
 
@@ -40,12 +40,18 @@
 
 ## Авторизация
 
-Подключить MAX Bridge и читать только `window.WebApp.initData`. В dev frontend отправляет специальный dev header только когда backend запущен с `APP_ENV=dev`; production fallback запрещён.
+Подключить MAX Bridge и читать только `window.WebApp.initData`. Заголовок `X-Init-Data` отправляется на каждый API-запрос.
+
+В dev frontend может отправлять `X-Init-Data: dev` только если `VITE_ALLOW_DEV_AUTH=true`. Это разрешено только для локального теста, когда backend запущен с `APP_ENV=dev`. В production с реальным MAX dev fallback отключён; без initData API возвращает 401.
 
 ## Состояния
 
 У каждого экрана обязательны: loading, empty, validation error, network error, success. Двойное нажатие submit блокируется; каждый submit имеет новый UUID `Idempotency-Key`.
 
+## Маршрутизация и SPA fallback
+
+Backend раздаёт собранный frontend и отдаёт `index.html` для всех путей, кроме `/api/*` и `/assets/*`. Внутри React Router используются пути `/report`, `/reports`, `/timesheet`, `/status`, `/admin/catalogs`.
+
 ## Не делать в MVP
 
-Redux, UI framework, offline sync, сложную админку, графики, редактирование отправленного отчёта.
+Redux, UI framework, offline sync, сложную админку с правами на отдельные поля, графики, редактирование отправленного отчёта.

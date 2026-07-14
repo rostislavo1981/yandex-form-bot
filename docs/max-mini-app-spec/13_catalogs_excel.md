@@ -26,7 +26,7 @@ PostgreSQL — источник истины. Excel — транспорт дл�
 
 - **Экспорт Excel** — скачивает `/api/catalogs/export.xlsx`.
 - **Шаблон Excel** — скачивает пустой `/api/catalogs/template.xlsx`.
-- **Импорт** — upload `.xlsx` в `/api/catalogs/import/validate`, затем apply.
+- **Импорт** — upload `.xlsx` в `/api/catalogs/import/apply` (validate + apply одним запросом). Прямой вызов `/api/catalogs/import/validate` остаётся доступен для preview; staged apply по `import_id` зарезервирован.
 
 Админ-страница не заменяет Excel bulk-загрузку, а дополняет её быстрым поштучным редактированием.
 
@@ -41,8 +41,9 @@ PostgreSQL — источник истины. Excel — транспорт дл�
 1. Upload сохраняет запись `catalog_imports`.
 2. Validate читает все листы, нормализует пробелы, проверяет обязательные колонки, дубли code, ссылки и enum.
 3. Backend возвращает preview: create/update/deactivate/errors.
-4. Только отдельный Apply выполняет upsert одной транзакцией.
+4. `POST /api/catalogs/import/apply` выполняет validate и upsert одной транзакцией.
 5. Ошибка откатывает весь импорт.
+6. Staged apply по ранее сохранённому `import_id` (`POST /api/catalogs/import/{import_id}/apply`) зарезервирован и не реализован.
 
 Отсутствующая строка не деактивируется автоматически. Для деактивации нужно `active=0`.
 

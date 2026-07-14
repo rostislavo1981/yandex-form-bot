@@ -51,8 +51,8 @@ I22 завершена. MVP готов к release candidate `v0.1.0-rc1`.
 **Агент:** kimi-k2.7-code:cloud  
 **Ветка:** docs/max-mini-app-spec  
 **Итерация:** I22 — Приёмка MVP  
-**Коммит:** `<TBD>`  
-**Tag:** `v0.1.0-rc1`
+**Коммит:** `08b23c4`  
+**Tag:** `v0.1.0-rc1` (предстоит поставить после push)
 
 **Сделано:**
 - Пройден чек-лист `09_testing_plan.md`.
@@ -105,11 +105,23 @@ I22 завершена. MVP готов к release candidate `v0.1.0-rc1`.
   `POST /api/reports`, `/api/submission-status`, `/api/timesheet/*`,
   `/api/admin/catalogs/*`, `/admin/catalogs`.
 
+**Документация доделана:**
+- Все маркеры `зарезервировано/не реализовано` переведены в явные заметки о scope.
+- `04_api_contract.md` дополнен полными схемами admin endpoints, control-panel,
+  scheduler/worker и dev-режимом.
+- `07_project_structure.md` приведён к реальному дереву файлов.
+- `13_catalogs_excel.md` синхронизирован с одношаговым import/apply.
+- `15_group_bot.md` дополнен расписанием, счётчиками, пультами, чек-листом.
+- `10_glossary.md` расширен терминами outbox, advisory lock, soft-delete, pg_trgm.
+- `12_track_A_bot_first.md` оформлен как полноценный redirect с обоснованием.
+- `01_overview.md`, `02_architecture.md`, `06_frontend_spec.md`, `14_timesheet.md`,
+  `SUMMARY.md` уточнены роли, dev-режим, SPA fallback, права табеля.
+
 **Следующий единственный шаг:**
 - Пользователь запускает `make prod-up` на VPS (с `DATABASE_URL=...db:5432...`),
   регистрирует webhook и проходит ручную приёмку MAX/Mini App.
 
-**Изменённые файлы:**
+**Изменённые файлы (I22 и доделка):**
 - `max_daily_report/pyproject.toml`
 - `max_daily_report/Caddyfile`
 - `max_daily_report/docker-compose.prod.yml`
@@ -139,3 +151,8 @@ I22 завершена. MVP готов к release candidate `v0.1.0-rc1`.
 - `docs/max-mini-app-spec/09_testing_plan.md`
 - `docs/max-mini-app-spec/13_catalogs_excel.md`
 - `docs/max-mini-app-spec/PROGRESS.md`
+- `docs/max-mini-app-spec/10_glossary.md`
+- `docs/max-mini-app-spec/11_two_tracks.md`
+- `docs/max-mini-app-spec/12_track_A_bot_first.md`
+- `docs/max-mini-app-spec/14_timesheet.md`
+- `docs/max-mini-app-spec/15_group_bot.md`
