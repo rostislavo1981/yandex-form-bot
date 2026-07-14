@@ -5,10 +5,14 @@ from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.deps import get_session
+from app.deps import get_session, require_internal
 from app.services.scheduler_service import SchedulerService
 
-router = APIRouter(prefix="/api/scheduler", tags=["scheduler"])
+router = APIRouter(
+    prefix="/api/scheduler",
+    tags=["scheduler"],
+    dependencies=[Depends(require_internal)],
+)
 
 
 @router.post("/morning")

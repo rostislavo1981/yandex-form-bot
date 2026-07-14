@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.deps import get_session
+from app.deps import get_session, require_user
 from app.models.catalogs import (
     Contractor,
     EquipmentType,
@@ -44,7 +44,11 @@ from app.schemas.admin_catalogs import (
     WorkTypeResponse,
 )
 
-router = APIRouter(prefix="/api/admin/catalogs", tags=["admin-catalogs"])
+router = APIRouter(
+    prefix="/api/admin/catalogs",
+    tags=["admin-catalogs"],
+    dependencies=[Depends(require_user)],
+)
 
 
 def _extract_user(request: Request) -> User:

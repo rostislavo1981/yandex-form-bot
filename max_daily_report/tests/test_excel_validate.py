@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from io import BytesIO
 
+import pytest
 from fastapi.testclient import TestClient
 from openpyxl import Workbook
 
@@ -9,6 +10,15 @@ from app.main import app
 from app.services.excel_service import SHEET_COLUMNS, SHEET_ORDER, build_template
 
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def _admin_dev_user(db_session):
+    """Import endpoints require manager/admin — pre-create dev-user as admin."""
+    from app.models.users import User
+
+    db_session.add(User(max_user_id="dev-user", full_name="Dev User", role="admin"))
+    db_session.commit()
 
 
 def _build_workbook(rows_by_sheet: dict) -> bytes:

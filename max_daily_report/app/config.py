@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     max_group_id: str = ""
     max_api_base_url: str = "https://platform-api2.max.ru"
 
+    # Shared secret for internal endpoints (/api/scheduler/*, /api/worker/*).
+    # Empty value allows access only in dev mode.
+    internal_token: str = ""
+
     host: str = "0.0.0.0"
     port: int = 8000
     log_level: str = "INFO"

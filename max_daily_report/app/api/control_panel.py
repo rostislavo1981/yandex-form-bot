@@ -5,11 +5,15 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.deps import get_session
+from app.deps import get_session, require_user
 from app.models.users import User
 from app.services.control_panel_service import ControlPanelService
 
-router = APIRouter(prefix="/api/control-panel", tags=["control-panel"])
+router = APIRouter(
+    prefix="/api/control-panel",
+    tags=["control-panel"],
+    dependencies=[Depends(require_user)],
+)
 
 
 def _extract_user(request: Request) -> User:

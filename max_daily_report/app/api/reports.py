@@ -5,7 +5,7 @@ from datetime import date
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.deps import get_session
+from app.deps import get_session, require_user
 from app.models.users import User
 from app.schemas.reports import (
     ReportCreatedResponse,
@@ -16,12 +16,16 @@ from app.schemas.reports import (
 )
 from app.services.report_service import ReportService, ReportValidationError
 
-router = APIRouter(prefix="/api/reports", tags=["reports"])
-submission_router = APIRouter(prefix="/api", tags=["submission"])
+router = APIRouter(
+    prefix="/api/reports", tags=["reports"], dependencies=[Depends(require_user)]
+)
+submission_router = APIRouter(
+    prefix="/api", tags=["submission"], dependencies=[Depends(require_user)]
+)
 
 
 def _extract_user(request: Request) -> User:
-    """Dev-only auth: attach placeholder user stored in app state."""
+    """Return the user resolved by the require_user dependency."""
     user = getattr(request.state, "user", None)
     if user is None:
         raise HTTPException(
@@ -105,13 +109,15 @@ async def list_reports(
 @router.get("/{report_id}", response_model=ReportDetailResponse)
 async def get_report_detail(
     report_id: int,
+    request: Request,
     session: AsyncSession = Depends(get_session),
 ) -> ReportDetailResponse:
-    """Get full report details by id."""
+    """Get full report details by id (responsible sees only own reports)."""
     from sqlalchemy import select
 
     from app.models.reports import DailyReport
 
+    user = _extract_user(request)
     result = await session.execute(
         select(DailyReport).where(DailyReport.id == report_id)
     )
@@ -120,6 +126,11 @@ async def get_report_detail(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="report not found",
+        )
+    if user.role == "responsible" and report.responsible_user_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Нет доступа к чужому отчёту",
         )
     return ReportDetailResponse.model_validate(report)
 

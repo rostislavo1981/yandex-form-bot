@@ -6,12 +6,14 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.deps import get_session
+from app.deps import get_session, require_user
 from app.models.users import User
 from app.services.timesheet_excel_service import TimesheetExcelBuilder
 from app.services.timesheet_service import TimesheetService
 
-router = APIRouter(prefix="/api/timesheet", tags=["timesheet"])
+router = APIRouter(
+    prefix="/api/timesheet", tags=["timesheet"], dependencies=[Depends(require_user)]
+)
 
 
 def _extract_user(request: Request) -> User:
@@ -67,7 +69,7 @@ async def export_timesheet(
     object_id: int,
     date_from: date = Query(...),
     date_to: date = Query(...),
-    request: Request = None,
+    request: Request = None,  # noqa: RUF013 — FastAPI injects Request
     session: AsyncSession = Depends(get_session),
 ) -> StreamingResponse:
     user = _extract_user(request)

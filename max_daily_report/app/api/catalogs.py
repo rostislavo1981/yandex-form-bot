@@ -3,7 +3,8 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.deps import get_session
+from app.deps import get_session, require_user
+from app.models.users import User
 from app.schemas.catalogs import (
     CatalogItem,
     CatalogItemWithSymbol,
@@ -12,7 +13,9 @@ from app.schemas.catalogs import (
 )
 from app.services.catalog_service import CatalogService
 
-router = APIRouter(prefix="/api/catalogs", tags=["catalogs"])
+router = APIRouter(
+    prefix="/api/catalogs", tags=["catalogs"], dependencies=[Depends(require_user)]
+)
 
 
 def _pagination(
@@ -27,10 +30,15 @@ def _pagination(
 async def search_objects(
     pagination: dict = Depends(_pagination),
     session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_user),
 ) -> CatalogListResponse:
     service = CatalogService(session)
+    restrict_user_id = user.id if user.role == "responsible" else None
     items, total = await service.search_objects(
-        q=pagination["q"], limit=pagination["limit"], offset=pagination["offset"]
+        q=pagination["q"],
+        limit=pagination["limit"],
+        offset=pagination["offset"],
+        restrict_user_id=restrict_user_id,
     )
     return CatalogListResponse(
         items=[CatalogItem.model_validate(obj) for obj in items], total=total

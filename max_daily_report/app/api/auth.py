@@ -105,10 +105,11 @@ async def _dev_fallback_user() -> User:
         return user
 
 
-async def _resolve_user_from_init_data(init_data: str | None) -> User:
+async def resolve_user_from_init_data(init_data: str | None) -> User:
     """Resolve a User from initData or dev fallback."""
     if init_data == "dev":
-        if not (settings.debug or settings.app_env == "dev"):
+        # Gate strictly on APP_ENV: DEBUG=true must never open dev auth in prod.
+        if settings.app_env != "dev":
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="dev auth disabled",
@@ -170,5 +171,5 @@ async def me(
             detail="initData required",
         )
 
-    user = await _resolve_user_from_init_data(x_init_data)
+    user = await resolve_user_from_init_data(x_init_data)
     return AuthResponse(user=UserResponse.model_validate(user))

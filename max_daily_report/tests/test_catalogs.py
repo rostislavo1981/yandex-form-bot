@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
@@ -18,6 +19,18 @@ from app.models.catalogs import (
 )
 
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def _manager_dev_user(db_session):
+    """Search semantics are tested under manager (sees all objects).
+
+    Responsible-role restriction is covered in test_access_control.py.
+    """
+    from app.models.users import User
+
+    db_session.add(User(max_user_id="dev-user", full_name="Dev User", role="manager"))
+    db_session.commit()
 
 
 def _suffix():

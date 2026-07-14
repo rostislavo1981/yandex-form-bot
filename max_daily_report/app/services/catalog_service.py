@@ -50,17 +50,37 @@ class CatalogService:
         self._session = session
 
     async def search_objects(
-        self, q: str | None, limit: int = DEFAULT_LIMIT, offset: int = 0
+        self,
+        q: str | None,
+        limit: int = DEFAULT_LIMIT,
+        offset: int = 0,
+        restrict_user_id: int | None = None,
     ) -> tuple[list[Object], int]:
+        """Search objects; with restrict_user_id — only objects with an active
+        assignment for that user (used for the responsible role)."""
+        from app.models.reports import ResponsibleObjectAssignment
+
         q = _normalize_query(q)
-        stmt = (
-            select(Object)
-            .where(_catalog_search_filter(Object, q))
-            .order_by(Object.sort_order, Object.name)
-        )
-        total_result = await self._session.execute(
-            select(func.count()).select_from(Object).where(_catalog_search_filter(Object, q))
-        )
+        criteria = _catalog_search_filter(Object, q)
+        stmt = select(Object).where(criteria)
+        count_stmt = select(func.count()).select_from(Object).where(criteria)
+        if restrict_user_id is not None:
+            assignment_join = ResponsibleObjectAssignment.object_id == Object.id
+            assignment_filter = (
+                ResponsibleObjectAssignment.user_id == restrict_user_id
+            ) & ResponsibleObjectAssignment.active.is_(True)
+            stmt = stmt.join(
+                ResponsibleObjectAssignment, assignment_join
+            ).where(assignment_filter)
+            count_stmt = (
+                select(func.count(func.distinct(Object.id)))
+                .select_from(Object)
+                .join(ResponsibleObjectAssignment, assignment_join)
+                .where(criteria & assignment_filter)
+            )
+            stmt = stmt.distinct()
+        stmt = stmt.order_by(Object.sort_order, Object.name)
+        total_result = await self._session.execute(count_stmt)
         total = total_result.scalar() or 0
         result = await self._session.execute(_paginate(stmt, limit, offset))
         return list(result.scalars().all()), total

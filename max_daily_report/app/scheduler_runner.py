@@ -30,8 +30,13 @@ async def _active_group_ids(session) -> list[int]:
 
 
 async def _api_post(path: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
+    headers = {}
+    if settings.internal_token:
+        headers["X-Internal-Token"] = settings.internal_token
     async with httpx.AsyncClient(timeout=60.0) as client:
-        response = await client.post(f"{API_BASE_URL}{path}", params=params or {})
+        response = await client.post(
+            f"{API_BASE_URL}{path}", params=params or {}, headers=headers
+        )
         response.raise_for_status()
         return response.json()
 

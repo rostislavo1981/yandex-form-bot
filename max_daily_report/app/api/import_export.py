@@ -5,6 +5,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
+from app.deps import require_manager
 from app.services.excel_service import (
     CatalogImportApplier,
     CatalogImportValidator,
@@ -12,7 +13,11 @@ from app.services.excel_service import (
     export_catalogs,
 )
 
-router = APIRouter(prefix="/api/catalogs", tags=["catalogs"])
+router = APIRouter(
+    prefix="/api/catalogs",
+    tags=["catalogs"],
+    dependencies=[Depends(require_manager)],
+)
 
 
 @router.get("/template.xlsx")
