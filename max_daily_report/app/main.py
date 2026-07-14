@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import uvicorn
 from fastapi import FastAPI, Request
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select
 
 from app.api import (
@@ -62,6 +65,10 @@ def create_app() -> FastAPI:
                     await session.refresh(user)
                 request.state.user = user
         return await call_next(request)
+
+    static_dir = Path(__file__).resolve().parent / "static"
+    if static_dir.is_dir():
+        app.mount("/", StaticFiles(directory=str(static_dir), html=True), name="static")
 
     return app
 

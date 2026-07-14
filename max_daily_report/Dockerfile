@@ -1,4 +1,14 @@
 # syntax=docker/dockerfile:1.6
+
+# Stage 1: build frontend
+FROM node:20-alpine AS frontend-builder
+WORKDIR /frontend
+COPY frontend/package*.json ./
+RUN npm ci
+COPY frontend/ ./
+RUN npm run build
+
+# Stage 2: Python backend
 FROM python:3.12-slim AS base
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -17,6 +27,8 @@ WORKDIR /app
 
 COPY pyproject.toml ./
 COPY app ./app
+COPY --from=frontend-builder /frontend/dist ./app/static
+COPY alembic.ini ./
 RUN pip install --upgrade pip && pip install -e "."
 
 EXPOSE 8000

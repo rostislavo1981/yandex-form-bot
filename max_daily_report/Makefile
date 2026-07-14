@@ -30,6 +30,25 @@ db-down: ## Stop Docker services
 api: ## Run FastAPI dev server
 	$(UVICORN) app.main:app --host 0.0.0.0 --port 8000 --reload
 
+prod-up: ## Start production stack (migrations + services)
+	docker compose -f docker-compose.prod.yml up -d db
+	@echo "Waiting for PostgreSQL..."
+	@until docker compose -f docker-compose.prod.yml exec -T db pg_isready -U ${POSTGRES_USER:-mdr_user} -d ${POSTGRES_DB:-mdr_db} 2>/dev/null; do sleep 1; done
+	./scripts/migrate.sh
+	docker compose -f docker-compose.prod.yml up -d
+
+prod-down: ## Stop production stack
+	docker compose -f docker-compose.prod.yml down
+
+prod-logs: ## Tail production logs
+	docker compose -f docker-compose.prod.yml logs -f
+
+migrate: ## Run Alembic migrations in production
+	./scripts/migrate.sh
+
+backup: ## Backup PostgreSQL to BACKUP_DIR
+	./scripts/backup.sh
+
 clean: ## Remove caches, build artifacts
 	rm -rf .pytest_cache .ruff_cache .mypy_cache build dist *.egg-info
 	find . -name __pycache__ -type d -exec rm -rf {} + 2>/dev/null || true
