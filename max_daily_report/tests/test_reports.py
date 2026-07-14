@@ -425,7 +425,8 @@ async def test_submission_status_counts_pending_and_submitted():
     assert status_response.status_code == 200
     body = status_response.json()
     assert body["expected"] == 2
-    assert body["submitted"] == 1
+    # после F4.4 сдача после due_at помечается late; тест не привязан
+    # к реальному времени, поэтому считаем «сдано» = submitted + late
+    assert body["submitted"] + body["late"] == 1
     assert body["pending"] == 1
-    assert body["late"] == 0
     assert len(body["missing"]) == 1
