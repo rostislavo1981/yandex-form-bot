@@ -4,7 +4,7 @@ import uvicorn
 from fastapi import FastAPI, Request
 from sqlalchemy import select
 
-from app.api import catalogs, health, import_export, reports
+from app.api import auth, catalogs, health, import_export, reports
 from app.config import settings
 from app.database import AsyncSessionLocal
 from app.models.users import User
@@ -18,6 +18,7 @@ def create_app() -> FastAPI:
         debug=settings.debug,
     )
     app.include_router(health.router)
+    app.include_router(auth.router)
     app.include_router(catalogs.router)
     app.include_router(import_export.router)
     app.include_router(reports.router)
@@ -26,9 +27,9 @@ def create_app() -> FastAPI:
     @app.middleware("http")
     async def dev_user_middleware(request: Request, call_next):
         """Attach a real dev placeholder user for dev-only auth."""
-        if request.url.path.startswith("/api/reports") or request.url.path.startswith(
-            "/api/submission-status"
-        ):
+        is_dev = settings.debug or settings.app_env == "dev"
+        is_api = request.url.path.startswith("/api/") and not request.url.path.startswith("/api/health")
+        if is_api and is_dev:
             async with AsyncSessionLocal() as session:
                 result = await session.execute(
                     select(User).where(User.max_user_id == "dev-user")

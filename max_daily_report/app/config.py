@@ -10,10 +10,12 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
+        case_sensitive=False,
     )
 
     app_name: str = "MAX Daily Report"
     debug: bool = False
+    app_env: str = "production"
     version: str = "0.1.0"
 
     database_url: str = "postgresql+asyncpg://mdr_user:mdr_pass@localhost:5432/mdr_db"
