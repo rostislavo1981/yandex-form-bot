@@ -13,6 +13,15 @@ from app.models.catalogs import (
     WorkTypeMethod,
 )
 from app.models.operations import CatalogImport
+from app.models.reports import (
+    DailyReport,
+    NotificationLog,
+    OutboxEvent,
+    ReportEquipment,
+    ReportObligation,
+    ReportWork,
+    ResponsibleObjectAssignment,
+)
 from app.models.users import GroupMember, MAXGroup, User
 
 __all__ = [
@@ -30,4 +39,11 @@ __all__ = [
     "WorkType",
     "WorkMethod",
     "WorkTypeMethod",
+    "ResponsibleObjectAssignment",
+    "ReportObligation",
+    "DailyReport",
+    "ReportEquipment",
+    "ReportWork",
+    "NotificationLog",
+    "OutboxEvent",
 ]
