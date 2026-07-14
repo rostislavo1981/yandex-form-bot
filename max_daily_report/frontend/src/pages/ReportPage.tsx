@@ -2,11 +2,35 @@ import { useCallback, useMemo, useState } from 'react'
 import { SearchSelect } from '../components/SearchSelect.tsx'
 import { EquipmentRows } from '../components/EquipmentRows.tsx'
 import { PersonnelField } from '../components/PersonnelField.tsx'
+import { WorkRows } from '../components/WorkRows.tsx'
 import { searchObjects, searchStages } from '../api/catalogs.ts'
+import { submitReport } from '../api/reports.ts'
 import type { CatalogItem } from '../types/catalogs'
-import type { EquipmentRow, ReportFormData, StaffValues } from '../types/reports'
+import type {
+  EquipmentRow,
+  ReportFormData,
+  StaffValues,
+  WorkRow,
+} from '../types/reports'
 
 const INITIAL_STAFF: StaffValues = { itr: 0, internal: 0, external: 0 }
+
+function toNumber(value: string): string | null {
+  const n = Number.parseFloat(value)
+  return Number.isFinite(n) && n > 0 ? n.toFixed(2) : null
+}
+
+function cleanRows(rows: EquipmentRow[] | WorkRow[]): unknown[] {
+  return rows
+    .filter((row) => {
+      const q = 'quantity' in row ? toNumber(row.quantity) : null
+      return q !== null
+    })
+    .map((row) => ({
+      ...row,
+      quantity: toNumber(row.quantity),
+    }))
+}
 
 export function ReportPage() {
   const [object, setObject] = useState<CatalogItem | null>(null)
@@ -17,8 +41,12 @@ export function ReportPage() {
   })
   const [staff, setStaff] = useState<StaffValues>(INITIAL_STAFF)
   const [equipment, setEquipment] = useState<EquipmentRow[]>([])
+  const [works, setWorks] = useState<WorkRow[]>([])
   const [soilExport, setSoilExport] = useState('')
   const [comment, setComment] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<{ id: number; late: boolean } | null>(null)
 
   const handleObjectChange = useCallback((item: CatalogItem | null) => {
     setObject(item)
@@ -30,27 +58,73 @@ export function ReportPage() {
     return (q: string) => searchStages(object.id, q).then((r) => r.items)
   }, [object])
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!object || !stage) {
+      setError('Выберите объект и этап')
+      return
+    }
+    setSubmitting(true)
+    setError(null)
+    setSuccess(null)
+
     const payload: ReportFormData = {
       report_date: reportDate,
-      object_id: object?.id ?? null,
-      stage_id: stage?.id ?? null,
+      object_id: object.id,
+      stage_id: stage.id,
       contractor_id: null,
       staff,
-      soil_export_m3: soilExport,
-      equipment,
-      works: [],
+      soil_export_m3: soilExport ? toNumber(soilExport) : null,
+      equipment: cleanRows(equipment) as EquipmentRow[],
+      works: cleanRows(works) as WorkRow[],
       comment,
     }
-    // eslint-disable-next-line no-console
-    console.log('submit', payload)
+
+    const idempotencyKey = crypto.randomUUID()
+    try {
+      const result = await submitReport(payload, idempotencyKey)
+      setSuccess({ id: result.id, late: result.late })
+      setEquipment([])
+      setWorks([])
+      setSoilExport('')
+      setComment('')
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Ошибка отправки'
+      setError(message)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  if (success) {
+    return (
+      <div className="screen report-page">
+        <h1>Отчёт отправлен</h1>
+        <p className="report-summary">
+          Номер отчёта: {success.id}
+          {success.late && <span className="badge-late">Опоздание</span>}
+        </p>
+        <button
+          type="button"
+          className="btn-primary"
+          onClick={() => {
+            setSuccess(null)
+            setObject(null)
+            setStage(null)
+          }}
+        >
+          Заполнить ещё
+        </button>
+      </div>
+    )
   }
 
   return (
     <div className="screen report-page">
       <h1>Новый отчёт</h1>
       <form className="report-form" onSubmit={handleSubmit}>
+        {error && <div className="form-error" role="alert">{error}</div>}
+
         <div className="field">
           <label htmlFor="report-date" className="field-label">
             Дата
@@ -87,6 +161,8 @@ export function ReportPage() {
 
         <EquipmentRows rows={equipment} onChange={setEquipment} />
 
+        <WorkRows rows={works} onChange={setWorks} />
+
         <div className="field">
           <label htmlFor="soil-export" className="field-label">
             Вывоз грунта, м³
@@ -116,8 +192,8 @@ export function ReportPage() {
           />
         </div>
 
-        <button type="submit" className="btn-primary">
-          Отправить
+        <button type="submit" className="btn-primary" disabled={submitting}>
+          {submitting ? 'Отправка…' : 'Отправить'}
         </button>
       </form>
     </div>

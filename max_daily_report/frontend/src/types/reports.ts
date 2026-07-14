@@ -13,14 +13,23 @@ export interface EquipmentRow {
   comment: string
 }
 
+export interface WorkRow {
+  id: string
+  work_type_id: number | null
+  work_method_id: number | null
+  unit_id: number | null
+  quantity: string
+  comment: string
+}
+
 export interface ReportFormData {
   report_date: string
   object_id: number | null
   stage_id: number | null
   contractor_id: number | null
   staff: StaffValues
-  soil_export_m3: string
+  soil_export_m3: string | null
   equipment: EquipmentRow[]
-  works: []
+  works: WorkRow[]
   comment: string
 }
