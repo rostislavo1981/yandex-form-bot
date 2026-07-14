@@ -17,6 +17,7 @@ from app.models.catalogs import (
     WorkMethod,
     WorkType,
 )
+from app.models.reports import ResponsibleObjectAssignment
 from app.models.users import GroupMember, MAXGroup, User
 from app.repos.catalogs import CatalogRepo
 
@@ -100,6 +101,11 @@ SEED_WORK_METHODS = [
     {"code": "machine", "name": "Механизированно"},
 ]
 
+SEED_ASSIGNMENTS = [
+    {"max_user_id": "max-resp-1", "object_code": "obj-1", "schedule_type": "daily"},
+    {"max_user_id": "max-resp-2", "object_code": "obj-2", "schedule_type": "daily"},
+]
+
 
 async def seed_async(session: AsyncSession) -> None:
     """Idempotently seed minimal catalog data (async)."""
@@ -159,6 +165,7 @@ async def seed_async(session: AsyncSession) -> None:
             code=item["code"], name=item["name"]
         )
 
+    objects: list[Object] = []
     for item in SEED_OBJECTS:
         obj = await repo.get_or_create_object(
             code=item["code"],
@@ -170,6 +177,7 @@ async def seed_async(session: AsyncSession) -> None:
             if item.get("default_contractor_code")
             else None,
         )
+        objects.append(obj)
         for stage_code in item.get("stage_codes", []):
             await repo.ensure_object_stage(obj.id, stages[stage_code].id)
 
@@ -188,6 +196,36 @@ async def seed_async(session: AsyncSession) -> None:
         )
         for method_code in item.get("method_codes", []):
             await repo.ensure_work_type_method(work_type.id, methods[method_code].id)
+
+    for item in SEED_ASSIGNMENTS:
+        user = next((u for u in users if u.max_user_id == item["max_user_id"]), None)
+        obj = next((o for o in objects if o.code == item["object_code"]), None)
+        if user is None or obj is None:
+            continue
+        result = await session.execute(
+            select(ResponsibleObjectAssignment).where(
+                ResponsibleObjectAssignment.user_id == user.id,
+                ResponsibleObjectAssignment.object_id == obj.id,
+            )
+        )
+        assignment = result.scalar_one_or_none()
+        if assignment is None:
+            from datetime import date
+
+            session.add(
+                ResponsibleObjectAssignment(
+                    user_id=user.id,
+                    object_id=obj.id,
+                    active_from=date(2024, 1, 1),
+                    active_to=date(2030, 12, 31),
+                    schedule_type=item["schedule_type"],
+                    active=True,
+                )
+            )
+        else:
+            assignment.active = True
+            assignment.schedule_type = item["schedule_type"]
+    await session.flush()
 
     await session.commit()
     logger.info("Seed completed successfully")
@@ -430,6 +468,50 @@ def seed_sync(session: object) -> None:
         )
         for method_code in item.get("method_codes", []):
             ensure_work_type_method(work_type.id, methods[method_code].id)
+
+    object_map = {
+        obj.code: obj
+        for obj in [
+            get_or_create_object(
+                item["code"],
+                item["name"],
+                item.get("execution_method"),
+                contractors[item["default_contractor_code"]].id
+                if item.get("default_contractor_code")
+                else None,
+            )
+            for item in SEED_OBJECTS
+        ]
+    }
+    user_map = {user.max_user_id: user for user in users}
+    for item in SEED_ASSIGNMENTS:
+        user = user_map.get(item["max_user_id"])
+        obj = object_map.get(item["object_code"])
+        if user is None or obj is None:
+            continue
+        assignment = session.execute(
+            sync_select(ResponsibleObjectAssignment).where(
+                ResponsibleObjectAssignment.user_id == user.id,
+                ResponsibleObjectAssignment.object_id == obj.id,
+            )
+        ).scalar_one_or_none()
+        if assignment is None:
+            from datetime import date
+
+            session.add(
+                ResponsibleObjectAssignment(
+                    user_id=user.id,
+                    object_id=obj.id,
+                    active_from=date(2024, 1, 1),
+                    active_to=date(2030, 12, 31),
+                    schedule_type=item["schedule_type"],
+                    active=True,
+                )
+            )
+        else:
+            assignment.active = True
+            assignment.schedule_type = item["schedule_type"]
+    session.flush()
 
     session.commit()
     logger.info("Seed completed successfully")

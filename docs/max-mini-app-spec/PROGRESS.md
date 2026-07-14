@@ -77,6 +77,21 @@ I22 завершена. MVP готов к release candidate `v0.1.0-rc1`.
 **Блокер/риск:**
 - Нет.
 
+**Дополнительно сделано после локальной приёмки:**
+- Seed теперь создаёт `ResponsibleObjectAssignment` для `max-resp-1/obj-1` и
+  `max-resp-2/obj-2`, чтобы полный сценарий «выбрать объект → заполнить →
+  отправить» работал сразу после `app.seed`.
+- Frontend dev-fallback активирован и в production-сборке через
+  `frontend/.env.production VITE_ALLOW_DEV_AUTH=true`, поэтому локальный Docker
+  стек можно тестировать в браузере без MAX.
+- `app/main.py`: dev-only middleware теперь включается только при `APP_ENV=dev`,
+  а не по `DEBUG=true`, чтобы тесты `test_auth.py` оставались корректными при
+  любом `.env`.
+- `Makefile`: цель `test` принудительно использует `DATABASE_URL` с хостом
+  `localhost`, чтобы `pytest` работал параллельно с Docker-стеком на хосте.
+- Проверен end-to-end в Docker: `/api/auth/me`, `/api/catalogs/*`,
+  `POST /api/reports`, `/api/submission-status`, `/api/timesheet/*`.
+
 **Следующий единственный шаг:**
 - Пользователь запускает `make prod-up` на VPS (с `DATABASE_URL=...db:5432...`),
   регистрирует webhook и проходит ручную приёмку MAX/Mini App.
@@ -85,6 +100,11 @@ I22 завершена. MVP готов к release candidate `v0.1.0-rc1`.
 - `max_daily_report/pyproject.toml`
 - `max_daily_report/Caddyfile`
 - `max_daily_report/docker-compose.prod.yml`
+- `max_daily_report/Makefile`
 - `max_daily_report/README.md`
 - `max_daily_report/.gitignore`
+- `max_daily_report/app/seed.py`
+- `max_daily_report/app/main.py`
+- `max_daily_report/frontend/.env.production`
+- `max_daily_report/frontend/src/api/client.ts`
 - `docs/max-mini-app-spec/PROGRESS.md`

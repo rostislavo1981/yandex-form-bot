@@ -29,7 +29,7 @@ COPY pyproject.toml ./
 COPY app ./app
 COPY --from=frontend-builder /frontend/dist ./app/static
 COPY alembic.ini ./
-RUN pip install --upgrade pip && pip install -e "."
+RUN pip install --upgrade pip --disable-pip-version-check && pip install -e "."
 
 EXPOSE 8000
 

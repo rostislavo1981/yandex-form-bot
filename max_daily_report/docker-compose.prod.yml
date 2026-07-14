@@ -29,8 +29,8 @@ services:
       - .env
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://mdr_user:mdr_pass@db:5432/mdr_db}
-      APP_ENV: production
-      DEBUG: "false"
+      APP_ENV: ${APP_ENV:-production}
+      DEBUG: ${DEBUG:-false}
     networks:
       - mdr
     healthcheck:
@@ -50,8 +50,8 @@ services:
       - .env
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://mdr_user:mdr_pass@db:5432/mdr_db}
-      APP_ENV: production
-      DEBUG: "false"
+      APP_ENV: ${APP_ENV:-production}
+      DEBUG: ${DEBUG:-false}
       SCHEDULER_API_URL: http://api:8000
       SCHEDULER_TIMEZONE: ${SCHEDULER_TIMEZONE:-Europe/Moscow}
     command: ["python", "-m", "app.scheduler_runner"]

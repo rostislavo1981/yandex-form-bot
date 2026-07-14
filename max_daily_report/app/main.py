@@ -46,7 +46,7 @@ def create_app() -> FastAPI:
     @app.middleware("http")
     async def dev_user_middleware(request: Request, call_next):
         """Attach a real dev placeholder user for dev-only auth."""
-        is_dev = settings.debug or settings.app_env == "dev"
+        is_dev = settings.app_env == "dev"
         is_api = request.url.path.startswith("/api/") and not request.url.path.startswith("/api/health")
         if is_api and is_dev:
             async with AsyncSessionLocal() as session:

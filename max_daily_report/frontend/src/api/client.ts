@@ -10,8 +10,9 @@ function getInitData(): string {
   if (webApp?.initData) {
     return webApp.initData
   }
-  // Dev-only fallback: allowed only when backend explicitly enables dev auth.
-  if (import.meta.env.DEV && import.meta.env.VITE_ALLOW_DEV_AUTH === 'true') {
+  // Dev fallback: allowed only when backend explicitly enables dev auth.
+  // Production local builds set VITE_ALLOW_DEV_AUTH so Docker smoke tests work.
+  if (import.meta.env.VITE_ALLOW_DEV_AUTH === 'true') {
     return 'dev'
   }
   return ''

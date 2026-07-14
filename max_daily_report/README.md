@@ -15,7 +15,9 @@ make api           # uvicorn --reload on :8000
 
 Fill `.env` with `MAX_BOT_TOKEN`, `MAX_WEBHOOK_SECRET`, `MAX_GROUP_ID` before
 using real MAX features. Dev mode (`DEBUG=true APP_ENV=dev`) bypasses MAX
-auth and auto-creates a placeholder user.
+auth and auto-creates a placeholder user. In dev mode the frontend also uses
+a `dev` initData fallback so you can test the Mini App in a browser at
+`http://127.0.0.1:8080/` without launching it from MAX.
 
 ## Production deploy
 
@@ -66,8 +68,46 @@ open.
    The script subscribes `https://${DOMAIN}/api/webhook/max` with the configured
    secret.
 
-6. Seed catalogs and create group/private control panels via the admin endpoints
-   or the existing UI.
+6. Seed catalogs and assignments:
+
+   ```bash
+   docker exec -e PYTHONPATH=/app mdr-api python -m app.seed
+   ```
+
+   Seed creates two responsible users (`max-resp-1`, `max-resp-2`), two objects
+   (`obj-1`, `obj-2`) and assigns each responsible to one object with a daily
+   schedule. Create additional assignments through the control panel or admin
+   endpoints.
+
+## Connecting to real MAX
+
+1. **Create a MAX bot** and get a bot token from the MAX partner cabinet.
+2. **Create a MAX group/chat** for your construction team and add the bot as an
+   **administrator** with the right to pin messages.
+3. Copy the group/chat ID into `.env` as `MAX_GROUP_ID`.
+4. Set `MAX_WEBHOOK_SECRET` to a long random string.
+5. Deploy the application on a VPS with a public domain and HTTPS (Caddy does
+   this automatically when `DOMAIN` is set and DNS points to the server).
+6. Register the webhook:
+
+   ```bash
+   ./scripts/register_webhook.sh
+   ```
+
+   This tells MAX to deliver updates to `https://${DOMAIN}/api/webhook/max`.
+
+7. The bot will receive `bot_started`, `chat_member` and `message_callback`
+   events. Users are auto-created in the DB from MAX IDs; the admin can assign
+   them to objects via the control panel.
+8. Send `/start` or open the Mini App from the group control panel to begin.
+
+### What each MAX event does
+
+- `bot_started` — creates/updates the user and sends a personal control panel.
+- `chat_member`/`new_chat_member` — adds the user to `group_members`.
+- `message_callback` — handles buttons: open app, status, timesheet, Excel.
+- `open_app` (Mini App launch) — frontend sends `initData` in the
+  `X-Init-Data` header; the backend validates it and resolves the user.
 
 ## Scheduler
 

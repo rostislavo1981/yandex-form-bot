@@ -18,8 +18,8 @@ install: ## Install package + dev deps into .venv
 lint: ## Run ruff linter
 	$(RUFF) check .
 
-test: ## Run pytest
-	$(PYTEST) -q
+test: ## Run pytest against local DB (localhost:5432)
+	DATABASE_URL=postgresql+asyncpg://mdr_user:mdr_pass@localhost:5432/mdr_db $(PYTEST) -q
 
 db-up: ## Start PostgreSQL in Docker
 	docker compose up -d db
