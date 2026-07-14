@@ -1,5 +1,5 @@
 import { api } from './client'
-import type { CatalogListResponse } from '../types/catalogs'
+import type { CatalogItemWithSymbol, CatalogListResponse } from '../types/catalogs'
 
 export async function searchObjects(q: string, limit = 20): Promise<CatalogListResponse> {
   const encoded = encodeURIComponent(q)
@@ -15,4 +15,13 @@ export async function searchStages(
   return api.get<CatalogListResponse>(
     `/api/catalogs/objects/${objectId}/stages?q=${encoded}&limit=${limit}`,
   )
+}
+
+export async function searchEquipment(q: string, limit = 20): Promise<CatalogListResponse> {
+  const encoded = encodeURIComponent(q)
+  return api.get<CatalogListResponse>(`/api/catalogs/equipment?q=${encoded}&limit=${limit}`)
+}
+
+export async function listUnits(limit = 50): Promise<{ items: CatalogItemWithSymbol[]; total: number }> {
+  return api.get<{ items: CatalogItemWithSymbol[]; total: number }>(`/api/catalogs/units?limit=${limit}`)
 }

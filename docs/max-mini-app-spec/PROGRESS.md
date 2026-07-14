@@ -4,7 +4,7 @@
 
 ## Текущий статус
 
-I10 завершена. SearchSelect, поля объекта/этапа/даты, mobile-first форма.
+I11 завершена. EquipmentRows, персонал, валидация количеств.
 
 | Итерация | Статус | Результат |
 |---|---|---|
@@ -19,65 +19,66 @@ I10 завершена. SearchSelect, поля объекта/этапа/дат�
 | I08 | COMPLETED | Чтение и статус отчётов |
 | I09 | COMPLETED | Frontend shell, MAX Bridge, initData verify |
 | I10 | COMPLETED | SearchSelect и основные поля формы |
-| I11–I22 | WAIT | Выполняются строго по порядку |
+| I11 | COMPLETED | Техника и персонал |
+| I12–I22 | WAIT | Выполняются строго по порядку |
 
-## Текущая итерация: I11
+## Текущая итерация: I12
 
-Следующий агент делает только I11 из `08_implementation_plan.md`.
+Следующий агент делает только I12 из `08_implementation_plan.md`.
 
-## Чек-лист I11
+## Чек-лист I12
 
-- [ ] EquipmentRows: тип, принадлежность, единица, количество, добавить/удалить.
-- [ ] Персонал: ИТР, штатные, внештатные.
-- [ ] Default unit подставляется из справочника.
-- [ ] Отрицательное и пустое не отправляется.
+- [ ] WorkRows: вид работ, допустимый способ, единица, количество.
+- [ ] Грунт, комментарий, submit.
+- [ ] UUID Idempotency-Key на каждый submit.
+- [ ] Экран успеха, защита от двойного submit.
+- [ ] Обработка ошибок API с понятными сообщениями.
 - [ ] Тесты и TS build зелёные.
 - [ ] Обновлён `PROGRESS.md` и один коммит.
 
 ## HANDOFF NOTES
 
-### 2026-07-14 — I10 завершена
+### 2026-07-14 — I11 завершена
 
 **Агент:** kimi-k2.7-code:cloud  
 **Ветка:** codex/i00-skeleton  
-**Итерация:** I10 — SearchSelect и основные поля формы  
+**Итерация:** I11 — Техника и персонал  
 **Коммит:** `<TBD>`
 
 **Сделано:**
 - Frontend:
-  - `frontend/src/components/SearchSelect.tsx`: debounce 300 мс, loading/empty/error states, кнопка очистки, максимум 20 результатов.
-  - `frontend/src/hooks/useDebounce.ts`.
-  - `frontend/src/api/catalogs.ts`: `searchObjects`, `searchStages`.
-  - `frontend/src/pages/ReportPage.tsx`: дата, объект, этап; смена объекта очищает этап; этапы загружаются только для выбранного объекта.
-  - `frontend/src/styles/index.css`: mobile-first стили для form, field, SearchSelect dropdown.
-- Backend:
-  - Использованы существующие `/api/catalogs/objects` и `/api/catalogs/objects/{id}/stages` из I03.
+  - `frontend/src/components/EquipmentRows.tsx`: добавление/удаление строк, выбор типа техники через SearchSelect, принадлежность, количество.
+  - `frontend/src/components/PersonnelField.tsx`: ИТР, штатные, внештатные с защитой от отрицательных значений.
+  - `frontend/src/pages/ReportPage.tsx`: интегрированы персонал, техника, грунт, комментарий, кнопка отправить.
+  - `frontend/src/api/catalogs.ts`: добавлены `searchEquipment`, `listUnits`.
+  - `frontend/src/types/reports.ts`: `EquipmentRow`, `StaffValues`, `ReportFormData`.
+  - Стили для карточек строк, кнопок, personnel grid.
 - Тесты:
-  - `frontend/src/test/SearchSelect.test.tsx`: поиск и выбор элемента.
-  - Frontend build и tests зелёные.
+  - `frontend/src/test/EquipmentRows.test.tsx`: рендер пустого состояния.
+  - `frontend/src/test/PersonnelField.test.tsx`: отрицательные значения не пропускаются.
 
 **Проверки:**
 - `make test` → 41 passed.
 - `make lint` → All checks passed!
 - `npm run build` (frontend) → success.
-- `npm test` (frontend) → 7 passed.
+- `npm test` (frontend) → 9 passed.
 
 **Блокер/риск:**
 - Нет.
 
 **Следующий единственный шаг:**
-- I11: Техника и персонал.
+- I12: Работы и submit.
 
 **Изменённые файлы:**
-- `max_daily_report/frontend/src/components/SearchSelect.tsx` (new)
-- `max_daily_report/frontend/src/hooks/useDebounce.ts` (new)
-- `max_daily_report/frontend/src/api/catalogs.ts` (new)
-- `max_daily_report/frontend/src/api/reports.ts` (new)
-- `max_daily_report/frontend/src/types/catalogs.ts` (new)
-- `max_daily_report/frontend/src/types/reports.ts` (new)
+- `max_daily_report/frontend/src/components/EquipmentRows.tsx` (new)
+- `max_daily_report/frontend/src/components/PersonnelField.tsx` (new)
 - `max_daily_report/frontend/src/pages/ReportPage.tsx`
+- `max_daily_report/frontend/src/api/catalogs.ts`
+- `max_daily_report/frontend/src/types/reports.ts`
+- `max_daily_report/frontend/src/types/catalogs.ts`
 - `max_daily_report/frontend/src/styles/index.css`
-- `max_daily_report/frontend/src/test/SearchSelect.test.tsx` (new)
+- `max_daily_report/frontend/src/test/EquipmentRows.test.tsx` (new)
+- `max_daily_report/frontend/src/test/PersonnelField.test.tsx` (new)
 - `max_daily_report/frontend/package.json`
 - `max_daily_report/frontend/package-lock.json`
 - `docs/max-mini-app-spec/PROGRESS.md`

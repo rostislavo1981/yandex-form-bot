@@ -207,3 +207,57 @@ body,
   font-size: 14px;
   color: #333;
 }
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.row-card {
+  padding: 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background: #fafafa;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.personnel-row {
+  display: flex;
+  gap: 12px;
+}
+
+.personnel-cell {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.btn-add,
+.btn-remove,
+.btn-primary {
+  padding: 10px 14px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.btn-add {
+  background: #f0f0f0;
+  color: #333;
+}
+
+.btn-remove {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.btn-primary {
+  background: #863bff;
+  color: #ffffff;
+  font-weight: 500;
+}

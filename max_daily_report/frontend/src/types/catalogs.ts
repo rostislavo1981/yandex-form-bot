@@ -4,6 +4,10 @@ export interface CatalogItem {
   name: string
 }
 
+export interface CatalogItemWithSymbol extends CatalogItem {
+  symbol: string
+}
+
 export interface CatalogListResponse {
   items: CatalogItem[]
   total: number
