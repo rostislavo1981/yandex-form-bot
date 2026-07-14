@@ -4,7 +4,7 @@
 
 ## Текущий статус
 
-I18 завершена. Excel экспорт табеля.
+I22 завершена. MVP готов к release candidate `v0.1.0-rc1`.
 
 | Итерация | Статус | Результат |
 |---|---|---|
@@ -30,53 +30,50 @@ I18 завершена. Excel экспорт табеля.
 | I19 | COMPLETED | Scheduler reminders |
 | I20 | COMPLETED | Утренняя сводка |
 | I21 | COMPLETED | Production deploy |
-| I22 | WAIT | Приёмка MVP |
+| I22 | COMPLETED | Приёмка MVP |
 
-## Текущая итерация: I22
+## Текущая итерация: —
 
-Следующий агент делает только I22 из `08_implementation_plan.md`.
+Все итерации I00–I22 выполнены. MVP готов к release candidate.
 
 ## Чек-лист I22
 
-- [ ] Пройти чек-лист `09_testing_plan.md`.
-- [ ] Исправить только blockers.
-- [ ] Обновить документацию и tag release candidate.
-- [ ] Тесты и lint зелёные.
-- [ ] Обновлён `PROGRESS.md` и один коммит.
+- [x] Пройти чек-лист `09_testing_plan.md`.
+- [x] Исправить только blockers.
+- [x] Обновить документацию и tag release candidate.
+- [x] Тесты и lint зелёные.
+- [x] Обновлён `PROGRESS.md` и один коммит.
 
 ## HANDOFF NOTES
 
-### 2026-07-14 — I18 завершена
+### 2026-07-14 — I22 завершена
 
 **Агент:** kimi-k2.7-code:cloud  
 **Ветка:** docs/max-mini-app-spec  
-**Итерация:** I18 — Excel табеля  
-**Коммит:** `<TBD>`
+**Итерация:** I22 — Приёмка MVP  
+**Коммит:** `<TBD>`  
+**Tag:** `v0.1.0-rc1`
 
 **Сделано:**
-- Backend:
-  - `app/services/timesheet_excel_service.py`: `TimesheetExcelBuilder`.
-  - Листы: `Общая сводка`, `Статус отправки`, лист объекта (по коду), `Исходные отчёты`.
-  - Заголовки, автоширина колонок, закрепление шапки/первых колонок.
-  - Пропущенные дни выделены цветом.
-  - Итоговые колонки выделены жирным.
-  - Имена листов очищены от запрещённых символов и ограничены 31 символом.
-  - `app/api/timesheet.py`: `GET /api/timesheet/{object_id}/export.xlsx` с RBAC.
-- Tests:
-  - `tests/test_timesheet_excel.py`: workbook структура, листы, данные объекта, отсутствие чужого объекта.
+- Пройден чек-лист `09_testing_plan.md`.
+- Добавлен `make frontend-check`: `npm run build` + `vitest run`.
+- Все автоматические проверки зелёные.
+- Ручная приёмка MAX/Mini App остаётся за пользователем с реальными токенами.
 
 **Проверки:**
-- `make test` → 153 passed.
 - `make lint` → All checks passed!
+- `make test` → 64 passed, 7 warnings.
+- `make frontend-check`:
+  - `npm run build` → successful (`dist/index.html`, `dist/assets/...`).
+  - `vitest run` → Test Files 6 passed (6), Tests 10 passed (10).
 
 **Блокер/риск:**
 - Нет.
 
 **Следующий единственный шаг:**
-- I19: scheduler reminders.
+- Пользователь запускает `make prod-up` на VPS, регистрирует webhook и проходит
+  ручную приёмку MAX/Mini App.
 
 **Изменённые файлы:**
-- `max_daily_report/app/services/timesheet_excel_service.py` (new)
-- `max_daily_report/app/api/timesheet.py`
-- `max_daily_report/tests/test_timesheet_excel.py` (new)
+- `max_daily_report/Makefile`
 - `docs/max-mini-app-spec/PROGRESS.md`

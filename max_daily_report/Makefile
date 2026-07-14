@@ -49,6 +49,9 @@ migrate: ## Run Alembic migrations in production
 backup: ## Backup PostgreSQL to BACKUP_DIR
 	./scripts/backup.sh
 
+frontend-check: ## Build frontend and run frontend tests
+	cd frontend && npm run build && npm run test
+
 clean: ## Remove caches, build artifacts
 	rm -rf .pytest_cache .ruff_cache .mypy_cache build dist *.egg-info
 	find . -name __pycache__ -type d -exec rm -rf {} + 2>/dev/null || true
