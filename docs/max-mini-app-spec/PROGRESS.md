@@ -66,14 +66,25 @@ I22 завершена. MVP готов к release candidate `v0.1.0-rc1`.
 - `make frontend-check`:
   - `npm run build` → successful (`dist/index.html`, `dist/assets/...`).
   - `vitest run` → Test Files 6 passed (6), Tests 10 passed (10).
+- `make prod-up` (local Docker) → db/api/scheduler/caddy healthy, health 200, seed
+  + scheduler endpoints respond, backup script works.
+- Исправлены blockers во время локального Docker-теста:
+  - добавлены runtime deps `openpyxl` и `cryptography`;
+  - `Caddyfile` использует plain HTTP для локального теста;
+  - `docker-compose.prod.yml` маппит `8080/8443` чтобы не конфликтовать с macOS 443;
+  - `README` объясняет переключение `DATABASE_URL` localhost ↔ db.
 
 **Блокер/риск:**
 - Нет.
 
 **Следующий единственный шаг:**
-- Пользователь запускает `make prod-up` на VPS, регистрирует webhook и проходит
-  ручную приёмку MAX/Mini App.
+- Пользователь запускает `make prod-up` на VPS (с `DATABASE_URL=...db:5432...`),
+  регистрирует webhook и проходит ручную приёмку MAX/Mini App.
 
 **Изменённые файлы:**
-- `max_daily_report/Makefile`
+- `max_daily_report/pyproject.toml`
+- `max_daily_report/Caddyfile`
+- `max_daily_report/docker-compose.prod.yml`
+- `max_daily_report/README.md`
+- `max_daily_report/.gitignore`
 - `docs/max-mini-app-spec/PROGRESS.md`
