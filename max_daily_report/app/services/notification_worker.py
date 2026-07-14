@@ -153,12 +153,17 @@ class NotificationWorker:
             f"Объект: {obj.name if obj else '—'}",
             f"Ответственный: {user.full_name if user else '—'}",
         ]
-        total_work = sum(w.quantity for w in report.works)
-        total_eq = sum(e.quantity for e in report.equipment)
-        if total_work:
-            lines.append(f"Работы: {self._format_decimal(total_work)}")
-        if total_eq:
-            lines.append(f"Техника: {self._format_decimal(total_eq)}")
+        # суммируем только внутри одной единицы измерения (правило спеки)
+        work_totals = self._totals_by_unit(
+            (w.unit_name_snapshot, w.quantity) for w in report.works
+        )
+        eq_totals = self._totals_by_unit(
+            (e.unit_name_snapshot, e.quantity) for e in report.equipment
+        )
+        if work_totals:
+            lines.append(f"Работы: {work_totals}")
+        if eq_totals:
+            lines.append(f"Техника: {eq_totals}")
         if report.soil_export_m3:
             lines.append(f"Вывоз грунта: {self._format_decimal(report.soil_export_m3)} м³")
         if report.staff_itr or report.staff_internal or report.staff_external:
@@ -166,6 +171,15 @@ class NotificationWorker:
                 f"Персонал: ИТР {report.staff_itr}, штат {report.staff_internal}, внеш {report.staff_external}"
             )
         return "\n".join(lines)
+
+    @classmethod
+    def _totals_by_unit(cls, pairs) -> str:
+        totals: dict[str, Decimal] = {}
+        for unit_name, quantity in pairs:
+            totals[unit_name] = totals.get(unit_name, Decimal(0)) + quantity
+        return ", ".join(
+            f"{cls._format_decimal(qty)} {unit}" for unit, qty in totals.items()
+        )
 
     @staticmethod
     def _format_decimal(value: Decimal | int | None) -> str:

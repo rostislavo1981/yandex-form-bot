@@ -1,15 +1,42 @@
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.database import engine
 from app.models.catalogs import Object
 from app.models.reports import NotificationLog, ReportObligation
 from app.models.users import MAXGroup, User
 from app.services.max_client import MAXClient
+
+
+@asynccontextmanager
+async def advisory_lock(lock_id: int) -> AsyncIterator[bool]:
+    """Hold a PostgreSQL advisory lock on a dedicated connection.
+
+    Session-level advisory locks are tied to a connection; commits inside the
+    job must not release the lock, so it lives on its own connection for the
+    whole `async with` block.
+    """
+    async with engine.connect() as conn:
+        result = await conn.execute(
+            text("SELECT pg_try_advisory_lock(:lock_id)").bindparams(lock_id=lock_id)
+        )
+        acquired = bool(result.scalar())
+        try:
+            yield acquired
+        finally:
+            if acquired:
+                await conn.execute(
+                    text("SELECT pg_advisory_unlock(:lock_id)").bindparams(
+                        lock_id=lock_id
+                    )
+                )
 
 
 class SchedulerService:
@@ -172,17 +199,6 @@ class SchedulerService:
         finally:
             await client.close()
 
-    async def acquire_lock(self, lock_id: int) -> bool:
-        result = await self._session.execute(
-            text("SELECT pg_try_advisory_lock(:lock_id)").bindparams(lock_id=lock_id)
-        )
-        return bool(result.scalar())
-
-    async def release_lock(self, lock_id: int) -> None:
-        await self._session.execute(
-            text("SELECT pg_advisory_unlock(:lock_id)").bindparams(lock_id=lock_id)
-        )
-
     async def _already_sent(self, key: str) -> bool:
         result = await self._session.execute(
             select(NotificationLog).where(
@@ -222,16 +238,25 @@ class SchedulerService:
         report_date: date,
         message_id: str,
     ) -> None:
-        log = NotificationLog(
-            notification_key=key,
-            kind=kind,
-            group_id=group_id,
-            report_date=report_date,
-            status="sent",
-            external_message_id=message_id,
-            sent_at=datetime.now(UTC),
+        """Upsert by notification_key — после сбоя запись уже существует."""
+        result = await self._session.execute(
+            select(NotificationLog).where(NotificationLog.notification_key == key)
         )
-        self._session.add(log)
+        log = result.scalar_one_or_none()
+        if log is None:
+            log = NotificationLog(
+                notification_key=key,
+                kind=kind,
+                group_id=group_id,
+                report_date=report_date,
+                attempts=0,
+            )
+            self._session.add(log)
+        log.status = "sent"
+        log.external_message_id = message_id
+        log.sent_at = datetime.now(UTC)
+        log.attempts = (log.attempts or 0) + 1
+        log.last_error = None
         await self._session.commit()
 
     async def _record_failed(
@@ -242,15 +267,25 @@ class SchedulerService:
         report_date: date,
         error: str,
     ) -> None:
-        log = NotificationLog(
-            notification_key=key,
-            kind=kind,
-            group_id=group_id,
-            report_date=report_date,
-            status="failed",
-            last_error=error[:1000],
+        """Upsert failure by notification_key — повторный сбой не должен
+        падать на UNIQUE(notification_key)."""
+        result = await self._session.execute(
+            select(NotificationLog).where(NotificationLog.notification_key == key)
         )
-        self._session.add(log)
+        log = result.scalar_one_or_none()
+        if log is None:
+            log = NotificationLog(
+                notification_key=key,
+                kind=kind,
+                group_id=group_id,
+                report_date=report_date,
+                status="failed",
+                attempts=0,
+            )
+            self._session.add(log)
+        log.status = "failed"
+        log.attempts = (log.attempts or 0) + 1
+        log.last_error = error[:1000]
         await self._session.commit()
 
 

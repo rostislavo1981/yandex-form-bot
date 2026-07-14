@@ -95,19 +95,14 @@ async def run_morning_summary() -> None:
             logger.exception("Morning summary failed for group %s", group_id)
 
 
-def _job_wrapper(coro):
-    def wrapper():
-        asyncio.create_task(coro())
-
-    return wrapper
-
-
 def build_scheduler() -> AsyncIOScheduler:
+    """APScheduler исполняет coroutine-функции сам — без create_task-обёртки,
+    иначе задача держится только слабой ссылкой и может быть удалена GC."""
     scheduler = AsyncIOScheduler(timezone=TIMEZONE)
 
     # create obligations shortly after midnight
     scheduler.add_job(
-        _job_wrapper(run_morning),
+        run_morning,
         CronTrigger(hour=0, minute=5),
         id="morning_obligations",
         replace_existing=True,
@@ -115,21 +110,23 @@ def build_scheduler() -> AsyncIOScheduler:
 
     # evening reminders
     scheduler.add_job(
-        _job_wrapper(lambda: run_evening_reminder(1)),
+        run_evening_reminder,
         CronTrigger(hour=20, minute=0),
+        args=[1],
         id="evening_reminder_1",
         replace_existing=True,
     )
     scheduler.add_job(
-        _job_wrapper(lambda: run_evening_reminder(2)),
+        run_evening_reminder,
         CronTrigger(hour=20, minute=30),
+        args=[2],
         id="evening_reminder_2",
         replace_existing=True,
     )
 
     # morning summary
     scheduler.add_job(
-        _job_wrapper(run_morning_summary),
+        run_morning_summary,
         CronTrigger(hour=8, minute=0),
         id="morning_summary",
         replace_existing=True,
