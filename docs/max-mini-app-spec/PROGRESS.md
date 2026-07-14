@@ -32,16 +32,15 @@ I22 завершена. MVP готов к release candidate `v0.1.0-rc1`.
 | I21 | COMPLETED | Production deploy |
 | I22 | COMPLETED | Приёмка MVP |
 
-## Текущая итерация: FIXLIST (после код-ревью)
+## Текущая итерация: FIXLIST закрыт — блокер RC снят
 
-Все итерации I00–I22 выполнены, но полное код-ревью 2026-07-14 нашло критические
-проблемы (прод-авторизация не подключена, незащищённые мутирующие endpoints,
-падающий webhook-callback и др.). **Release candidate заблокирован** до закрытия
-групп F1–F5 из [`FIXLIST.md`](./FIXLIST.md).
+Все группы F1–F7 из [`FIXLIST.md`](./FIXLIST.md) исправлены 2026-07-15
+(коммиты d242f4a…054169a). 112 backend + 10 frontend тестов зелёные,
+ruff/tsc чистые. Остаточный `[непроверено]` — wire-формат MAX API (F6.4),
+закрывается при подключении реального бота (см. `05_max_integration.md` §5.17).
 
-Следующий агент работает по `FIXLIST.md` строго по порядку групп: F1 (auth) →
-F2 (webhook) → F3 (валидация отчёта) → F4 (табель/obligations) → F5 (scheduler)
-→ F6/F7. Каждый пункт = фикс + регресс-тест + отметка `[x]` с hash коммита.
+Следующий шаг: ручная приёмка с реальным токеном MAX (runbook I21) и,
+после живой сверки формата API, tag `v0.1.0-rc1`.
 
 ## Чек-лист I22
 
@@ -52,6 +51,56 @@ F2 (webhook) → F3 (валидация отчёта) → F4 (табель/oblig
 - [x] Обновлён `PROGRESS.md` и один коммит.
 
 ## HANDOFF NOTES
+
+### 2026-07-15 — FIXLIST F1–F7 исправлены полностью
+
+**Агент:** Claude Opus 4.8
+**Ветка:** codex/i00-skeleton
+**Итерация:** FIXLIST (пост-ревью)
+**Коммиты:** d242f4a (F1), 2e6eab6 (F2), aa36346 (F3), a37802c (F4), 96fee19 (F5), 054169a (F6)
+
+**Сделано:**
+- F1: require_user/require_manager/require_internal в `app/deps.py`,
+  подключены router-level ко всем защищённым роутерам; import/export —
+  только manager/admin; scheduler/worker — X-Internal-Token
+  (INTERNAL_TOKEN, без него только dev); GET /api/reports/{id} —
+  ownership; поиск объектов для responsible ограничен назначениями;
+  X-Init-Data=dev в prod больше не открывается через DEBUG=true.
+- F2: webhook my_reports переписан на реальные поля (join User/Object);
+  ссылка max.ru/<MAX_BOT_USERNAME>?startapp=report без токена; добавлены
+  обработчики group_status и timesheet*; кнопка «Повторить» удалена.
+- F3: model_validator вместо field_validator (works-only отчёт
+  принимается); soil=0 не содержимое; staff ge=0; дубль дня → 409;
+  несуществующие справочники → 422.
+- F4: персонал/грунт в табеле накапливаются; average по expected-дням;
+  obligations только в периоде назначения; late при сдаче после due_at;
+  due_at tz-aware (Europe/Moscow).
+- F5: NotificationLog upsert (сбой→сбой и сбой→успех без UNIQUE-краха);
+  advisory_lock на выделенном соединении (переживает commit при
+  NullPool); APScheduler без fire-and-forget обёртки; карточка отчёта
+  группирует количества по единицам.
+- F6: user.id проверяется до str(); убран двойной unquote в initData
+  (+тест с %-последовательностью); responsible_user_id для подмены
+  manager/admin; клавиатура в формате payload.buttons c контракт-тестом
+  и [непроверено]; SPA 404 для /api/*; Caddyfile {$DOMAIN::80} с
+  авто-HTTPS при DOMAIN=домен; N+1 и стилевые мелочи.
+
+**Проверки:**
+- `pytest` → 112 passed (было 74; +38 регресс-тестов в
+  test_access_control, test_report_validation_fixes,
+  test_timesheet_obligation_fixes, test_scheduler_reliability,
+  test_f6_fixes, test_webhook).
+- `ruff check .` → чисто; `npm run build` + `vitest` → 10 passed.
+
+**Blocker/риск:**
+- Wire-формат MAX API (payload.buttons, chatId, x-signature, схема
+  update) — гипотезы по docs; обязательна живая сверка §5.17 перед прод.
+
+**Следующий единственный шаг:**
+- Ручная приёмка с реальным MAX-токеном по runbook I21; после сверки
+  формата API — tag v0.1.0-rc1.
+
+---
 
 ### 2026-07-14 — Полное код-ревью, создан FIXLIST.md
 
