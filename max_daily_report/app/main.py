@@ -4,7 +4,17 @@ import uvicorn
 from fastapi import FastAPI, Request
 from sqlalchemy import select
 
-from app.api import auth, catalogs, control_panel, health, import_export, reports, webhook, worker
+from app.api import (
+    auth,
+    catalogs,
+    control_panel,
+    health,
+    import_export,
+    reports,
+    timesheet,
+    webhook,
+    worker,
+)
 from app.config import settings
 from app.database import AsyncSessionLocal
 from app.models.users import User
@@ -26,6 +36,7 @@ def create_app() -> FastAPI:
     app.include_router(webhook.router)
     app.include_router(control_panel.router)
     app.include_router(worker.router)
+    app.include_router(timesheet.router)
 
     @app.middleware("http")
     async def dev_user_middleware(request: Request, call_next):
