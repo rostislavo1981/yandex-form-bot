@@ -4,7 +4,7 @@
 
 ## Текущий статус
 
-I17 завершена. Табель UI.
+I18 завершена. Excel экспорт табеля.
 
 | Итерация | Статус | Результат |
 |---|---|---|
@@ -19,63 +19,63 @@ I17 завершена. Табель UI.
 | I08 | COMPLETED | Чтение и статус отчётов |
 | I09 | COMPLETED | Frontend shell, MAX Bridge, initData verify |
 | I10 | COMPLETED | SearchSelect и основные поля формы |
-| I11 | COMPLETED | Техника и персонал |
+| I11 | COMPLETED | Техника и перерсонал |
 | I12 | COMPLETED | Работы и submit |
 | I13 | COMPLETED | MAX REST client, webhook handler, тесты |
 | I14 | COMPLETED | Групповой/личный пульт управления |
 | I15 | COMPLETED | Карточка после отчёта |
 | I16 | COMPLETED | Табель API |
 | I17 | COMPLETED | Табель UI |
-| I18–I22 | WAIT | Выполняются строго по порядку |
+| I18 | COMPLETED | Excel табеля |
+| I19–I22 | WAIT | Выполняются строго по порядку |
 
-## Текущая итерация: I18
+## Текущая итерация: I19
 
-Следующий агент делает только I18 из `08_implementation_plan.md`.
+Следующий агент делает только I19 из `08_implementation_plan.md`.
 
-## Чек-лист I18
+## Чек-лист I19
 
-- [ ] Excel export табеля: листы summary/status/object/raw.
-- [ ] Форматирование и download endpoint.
-- [ ] Workbook открывается openpyxl.
-- [ ] Каждый объект на своём листе.
-- [ ] Контрольные суммы равны API.
-- [ ] Имена листов безопасны.
+- [ ] Scheduler worker, advisory lock, create obligations.
+- [ ] Два вечерних reminder jobs.
+- [ ] Показывает только pending; ФИО + объекты.
+- [ ] Второй запуск не дублирует.
+- [ ] Timezone test.
 - [ ] Тесты и lint зелёные.
 - [ ] Обновлён `PROGRESS.md` и один коммит.
 
 ## HANDOFF NOTES
 
-### 2026-07-14 — I17 завершена
+### 2026-07-14 — I18 завершена
 
 **Агент:** kimi-k2.7-code:cloud  
 **Ветка:** docs/max-mini-app-spec  
-**Итерация:** I17 — Табель UI  
+**Итерация:** I18 — Excel табеля  
 **Коммит:** `<TBD>`
 
 **Сделано:**
-- Frontend:
-  - `frontend/src/api/timesheet.ts`: типы и `fetchTimesheet`.
-  - `frontend/src/pages/TimesheetPage.tsx`: выбор объекта (SearchSelect), выбор периода, загрузка табеля, группировка по категориям, sticky колонки, итог/средн/макс, missing days.
-  - `frontend/src/styles/index.css`: стили для табеля, мобильный горизонтальный скролл.
 - Backend:
-  - Используется существующий `GET /api/timesheet/{object_id}` из I16.
-- Тесты:
-  - Frontend build и tests зелёные.
+  - `app/services/timesheet_excel_service.py`: `TimesheetExcelBuilder`.
+  - Листы: `Общая сводка`, `Статус отправки`, лист объекта (по коду), `Исходные отчёты`.
+  - Заголовки, автоширина колонок, закрепление шапки/первых колонок.
+  - Пропущенные дни выделены цветом.
+  - Итоговые колонки выделены жирным.
+  - Имена листов очищены от запрещённых символов и ограничены 31 символом.
+  - `app/api/timesheet.py`: `GET /api/timesheet/{object_id}/export.xlsx` с RBAC.
+- Tests:
+  - `tests/test_timesheet_excel.py`: workbook структура, листы, данные объекта, отсутствие чужого объекта.
 
 **Проверки:**
-- `make test` → 57 passed.
+- `make test` → 153 passed.
 - `make lint` → All checks passed!
-- `npm run build` (frontend) → success.
-- `npm test -- --run` (frontend) → 10 passed.
 
 **Блокер/риск:**
 - Нет.
 
 **Следующий единственный шаг:**
-- I18: Excel табеля.
+- I19: scheduler reminders.
 
 **Изменённые файлы:**
-- `max_daily_report/frontend/src/api/timesheet.ts` (new)
-- `max_daily_report/frontend/src/pages/TimesheetPage.tsx`
-- `max_daily_report/frontend/src/styles/index.css`
+- `max_daily_report/app/services/timesheet_excel_service.py` (new)
+- `max_daily_report/app/api/timesheet.py`
+- `max_daily_report/tests/test_timesheet_excel.py` (new)
 - `docs/max-mini-app-spec/PROGRESS.md`
