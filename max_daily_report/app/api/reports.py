@@ -14,7 +14,11 @@ from app.schemas.reports import (
     ReportListResponse,
     SubmissionStatusResponse,
 )
-from app.services.report_service import ReportService, ReportValidationError
+from app.services.report_service import (
+    ReportDuplicateError,
+    ReportService,
+    ReportValidationError,
+)
 
 router = APIRouter(
     prefix="/api/reports", tags=["reports"], dependencies=[Depends(require_user)]
@@ -43,37 +47,32 @@ async def create_report_endpoint(
     session: AsyncSession = Depends(get_session),
 ) -> ReportCreatedResponse:
     """Submit a daily report for an object/stage."""
+    from datetime import UTC, datetime
+
+    from sqlalchemy import select
+
+    from app.models.reports import ReportObligation
+
     user = _extract_user(request)
     service = ReportService(session)
     try:
         report = await service.create(user, data, idempotency_key)
+    except ReportDuplicateError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"error": str(exc)},
+        ) from exc
     except ReportValidationError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail={"error": str(exc)},
         ) from exc
-    now = __import__("datetime").datetime.now(
-        __import__("datetime").timezone.utc
+
+    obligation_result = await session.execute(
+        select(ReportObligation).where(ReportObligation.report_id == report.id)
     )
-    due_at = getattr(
-        (
-            await session.execute(
-                __import__("sqlalchemy", fromlist=["select"]).select(
-                    __import__(
-                        "app.models.reports", fromlist=["ReportObligation"]
-                    ).ReportObligation
-                ).where(
-                    __import__(
-                        "app.models.reports", fromlist=["ReportObligation"]
-                    ).ReportObligation.report_id
-                    == report.id
-                )
-            )
-        ).scalar_one_or_none(),
-        "due_at",
-        None,
-    )
-    late = due_at is not None and now > due_at
+    due_at = getattr(obligation_result.scalar_one_or_none(), "due_at", None)
+    late = due_at is not None and datetime.now(UTC) > due_at
     return ReportCreatedResponse(id=report.id, status=report.status, late=late)
 
 

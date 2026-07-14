@@ -3,13 +3,13 @@ from __future__ import annotations
 from datetime import date
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class StaffInput(BaseModel):
-    itr: int = 0
-    internal: int = 0
-    external: int = 0
+    itr: int = Field(default=0, ge=0)
+    internal: int = Field(default=0, ge=0)
+    external: int = Field(default=0, ge=0)
 
 
 class EquipmentInput(BaseModel):
@@ -48,26 +48,24 @@ class ReportCreateRequest(BaseModel):
     stage_id: int
     contractor_id: int | None = None
     staff: StaffInput = Field(default_factory=StaffInput)
-    soil_export_m3: Decimal | None = None
+    soil_export_m3: Decimal | None = Field(default=None, ge=0)
     equipment: list[EquipmentInput] = Field(default_factory=list)
     works: list[WorkInput] = Field(default_factory=list)
     comment: str | None = None
 
-    @field_validator("equipment", "works")
-    @classmethod
-    def at_least_one_detail(cls, value: list, info) -> list:
-        all_values = info.data
-        has_equipment = bool(all_values.get("equipment"))
-        has_works = bool(all_values.get("works"))
-        has_soil = all_values.get("soil_export_m3") is not None
-        has_staff = bool(
-            (all_values.get("staff") or StaffInput()).itr
-            or (all_values.get("staff") or StaffInput()).internal
-            or (all_values.get("staff") or StaffInput()).external
-        )
+    @model_validator(mode="after")
+    def at_least_one_detail(self) -> ReportCreateRequest:
+        """Отчёт должен содержать хотя бы один факт (после парсинга всех полей).
+
+        soil_export_m3 = 0 фактом не считается.
+        """
+        has_equipment = bool(self.equipment)
+        has_works = bool(self.works)
+        has_soil = self.soil_export_m3 is not None and self.soil_export_m3 > 0
+        has_staff = bool(self.staff.itr or self.staff.internal or self.staff.external)
         if not (has_equipment or has_works or has_soil or has_staff):
             raise ValueError("report must contain equipment, works, soil_export or staff")
-        return value
+        return self
 
 
 class ReportCreatedResponse(BaseModel):

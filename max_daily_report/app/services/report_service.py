@@ -35,6 +35,10 @@ class ReportValidationError(ValueError):
     pass
 
 
+class ReportDuplicateError(ValueError):
+    """A report for this date/object/user already exists."""
+
+
 class ReportService:
     """Create daily reports with invariants, idempotency and outbox event."""
 
@@ -72,7 +76,11 @@ class ReportService:
 
         for eq_input in data.equipment:
             equipment_type = await self._get(EquipmentType, eq_input.equipment_type_id)
+            if equipment_type is None:
+                raise ReportValidationError("equipment type not found")
             unit = await self._get(Unit, eq_input.unit_id)
+            if unit is None:
+                raise ReportValidationError("unit not found")
             self._session.add(
                 ReportEquipment(
                     report_id=report.id,
@@ -88,7 +96,11 @@ class ReportService:
 
         for work_input in data.works:
             work_type = await self._get(WorkType, work_input.work_type_id)
+            if work_type is None:
+                raise ReportValidationError("work type not found")
             unit = await self._get(Unit, work_input.unit_id)
+            if unit is None:
+                raise ReportValidationError("unit not found")
             method = None
             if work_input.work_method_id:
                 method = await self._get(WorkMethod, work_input.work_method_id)
@@ -252,7 +264,7 @@ class ReportService:
         )
         has_equipment = bool(data.equipment)
         has_works = bool(data.works)
-        has_soil = data.soil_export_m3 is not None
+        has_soil = data.soil_export_m3 is not None and data.soil_export_m3 > 0
         if not (has_staff or has_equipment or has_works or has_soil):
             raise ReportValidationError(
                 "report must contain equipment, works, soil_export or staff"
@@ -284,11 +296,14 @@ class ReportService:
                 ReportObligation.report_date == report.report_date,
                 ReportObligation.user_id == user_id,
                 ReportObligation.object_id == report.object_id,
-                ReportObligation.status == "pending",
             )
         )
         obligation = result.scalar_one_or_none()
         now = datetime.now(UTC)
+        if obligation is not None and obligation.status in ("submitted", "late"):
+            raise ReportDuplicateError(
+                "Отчёт за эту дату по этому объекту уже сдан"
+            )
         if obligation is None:
             # create orphan obligation if none existed
             assignment_result = await self._session.execute(
@@ -300,7 +315,11 @@ class ReportService:
                     ResponsibleObjectAssignment.active_to >= report.report_date,
                 )
             )
-            assignment = assignment_result.scalar_one()
+            assignment = assignment_result.scalar_one_or_none()
+            if assignment is None:
+                raise ReportValidationError(
+                    "no active assignment for this object and date"
+                )
             obligation = ReportObligation(
                 report_date=report.report_date,
                 assignment_id=assignment.id,
