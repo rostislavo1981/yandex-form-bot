@@ -331,7 +331,9 @@ class ReportService:
             )
             self._session.add(obligation)
         else:
-            obligation.status = "submitted"
+            # сдача после дедлайна фиксируется как late (спека 15_group_bot)
+            is_late = obligation.due_at is not None and now > obligation.due_at
+            obligation.status = "late" if is_late else "submitted"
             obligation.submitted_at = now
             obligation.report_id = report.id
         await self._session.flush()

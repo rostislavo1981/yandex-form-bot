@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import zoneinfo
 from collections.abc import Sequence
 from datetime import date, datetime, time, timedelta
 
@@ -14,7 +15,9 @@ def _is_workday(target_date: date) -> bool:
 
 
 def _due_at_for_date(target_date: date, tz_name: str = "Europe/Moscow") -> datetime:
-    return datetime.combine(target_date, time(23, 59, 59))
+    """Дедлайн — конец дня в локальной таймзоне группы (tz-aware)."""
+    tz = zoneinfo.ZoneInfo(tz_name)
+    return datetime.combine(target_date, time(23, 59, 59), tzinfo=tz)
 
 
 class ObligationService:
@@ -34,7 +37,9 @@ class ObligationService:
         """
         result = await self._session.execute(
             select(ResponsibleObjectAssignment).where(
-                ResponsibleObjectAssignment.active.is_(True)
+                ResponsibleObjectAssignment.active.is_(True),
+                ResponsibleObjectAssignment.active_from <= end_date,
+                ResponsibleObjectAssignment.active_to >= start_date,
             )
         )
         assignments: Sequence[ResponsibleObjectAssignment] = result.scalars().all()
@@ -43,6 +48,10 @@ class ObligationService:
         skipped = 0
         for assignment in assignments:
             for current in self._date_range(start_date, end_date):
+                # obligations существуют только внутри периода назначения
+                if not (assignment.active_from <= current <= assignment.active_to):
+                    skipped += 1
+                    continue
                 if assignment.schedule_type == "weekdays" and not _is_workday(current):
                     skipped += 1
                     continue

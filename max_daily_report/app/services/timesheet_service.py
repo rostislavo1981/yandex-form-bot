@@ -58,11 +58,17 @@ class TimesheetService:
 
         for report in reports:
             submitted_days.add(report.report_date)
-            personnel_row.values[report.report_date] = Decimal(
+            # accumulate — за день может быть несколько отчётов (разные ответственные)
+            personnel_row.values[report.report_date] = personnel_row.values.get(
+                report.report_date, Decimal(0)
+            ) + Decimal(
                 report.staff_itr + report.staff_internal + report.staff_external
             )
             if report.soil_export_m3:
-                soil_row.values[report.report_date] = report.soil_export_m3
+                soil_row.values[report.report_date] = (
+                    soil_row.values.get(report.report_date, Decimal(0))
+                    + report.soil_export_m3
+                )
             for eq in report.equipment:
                 key = _RowKey(
                     "equipment",
@@ -163,7 +169,11 @@ class TimesheetService:
                 values.append(None)  # missing expected report
             else:
                 values.append(Decimal(0))
-        avg = total / Decimal(count) if count else Decimal(0)
+        # среднее — по календарным дням, где ожидался отчёт (спека 14_timesheet);
+        # fallback на дни с данными, если обязательств в периоде не было
+        expected_in_range = sum(1 for d in days if d in expected_days)
+        divisor = expected_in_range or count
+        avg = total / Decimal(divisor) if divisor else Decimal(0)
         return {
             "category": row.key.category,
             "item_name": row.key.item_name,
