@@ -22,8 +22,10 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://mdr_user:mdr_pass@localhost:5432/mdr_db"
 
     max_bot_token: str = ""
+    max_bot_username: str = ""
     max_webhook_secret: str = ""
     max_group_id: str = ""
+    webapp_public_url: str = ""
     max_api_base_url: str = "https://platform-api2.max.ru"
 
     # Shared secret for internal endpoints (/api/scheduler/*, /api/worker/*).

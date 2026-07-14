@@ -86,7 +86,6 @@ class NotificationWorker:
             text = self._report_card_text(report, user, obj)
             keyboard = [
                 [
-                    {"text": "🔁 Повторить", "callback_data": f"retry_report:{report.id}"},
                     {"text": "📊 Статус", "callback_data": f"group_status:{group.id}"},
                 ]
             ]
