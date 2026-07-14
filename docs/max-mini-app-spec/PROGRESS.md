@@ -32,9 +32,16 @@ I22 завершена. MVP готов к release candidate `v0.1.0-rc1`.
 | I21 | COMPLETED | Production deploy |
 | I22 | COMPLETED | Приёмка MVP |
 
-## Текущая итерация: —
+## Текущая итерация: FIXLIST (после код-ревью)
 
-Все итерации I00–I22 выполнены. MVP готов к release candidate.
+Все итерации I00–I22 выполнены, но полное код-ревью 2026-07-14 нашло критические
+проблемы (прод-авторизация не подключена, незащищённые мутирующие endpoints,
+падающий webhook-callback и др.). **Release candidate заблокирован** до закрытия
+групп F1–F5 из [`FIXLIST.md`](./FIXLIST.md).
+
+Следующий агент работает по `FIXLIST.md` строго по порядку групп: F1 (auth) →
+F2 (webhook) → F3 (валидация отчёта) → F4 (табель/obligations) → F5 (scheduler)
+→ F6/F7. Каждый пункт = фикс + регресс-тест + отметка `[x]` с hash коммита.
 
 ## Чек-лист I22
 
@@ -45,6 +52,42 @@ I22 завершена. MVP готов к release candidate `v0.1.0-rc1`.
 - [x] Обновлён `PROGRESS.md` и один коммит.
 
 ## HANDOFF NOTES
+
+### 2026-07-14 — Полное код-ревью, создан FIXLIST.md
+
+**Агент:** Claude Opus 4.8
+**Ветка:** codex/i00-skeleton
+**Итерация:** пост-I22 ревью
+**Коммит:** см. git log (fixlist)
+
+**Сделано:**
+- Полное код-ревью всех 46 модулей `max_daily_report/` (backend + frontend).
+- Прогнаны `make lint` (чисто), `make test` (74 passed), `make frontend-check`
+  (build ok, 10 passed) — зелёные, но покрывают только dev-путь авторизации.
+- Составлен [`FIXLIST.md`](./FIXLIST.md): 7 групп исправлений (F1–F7),
+  ~30 пунктов с file:line ссылками и требованиями к регресс-тестам.
+
+**Ключевые находки (детали в FIXLIST):**
+- F1: initData-авторизация подключена только к `/api/auth/me`; остальные
+  endpoints читают `request.state.user` от dev-middleware → в проде всё 401;
+  import/apply, scheduler, worker вообще без auth; `GET /api/reports/{id}` без auth.
+- F2: webhook `my_reports` обращается к несуществующим полям модели (crash);
+  Telegram-ссылка t.me с префиксом токена; кнопки рассылок без обработчиков.
+- F3: works-only отчёт отклоняется (порядок валидаторов); soil=0 проходит как
+  содержимое; отрицательный персонал принимается; дубль дня → 500.
+- F4: персонал/грунт в табеле затираются при 2 отчётах в день; average не по
+  expected; obligations вне периода назначения; late никогда не ставится.
+- F5: notification_log падает на UNIQUE при повторном сбое; advisory lock
+  не переживает commit при NullPool; fire-and-forget task в scheduler_runner.
+
+**Блокер/риск:**
+- `v0.1.0-rc1` НЕ ставить до закрытия F1–F5.
+
+**Следующий единственный шаг:**
+- Открыть `FIXLIST.md`, начать F1.1 (общий auth-dependency) в ветке
+  `codex/fix-f1-auth`.
+
+---
 
 ### 2026-07-14 — I22 завершена
 
