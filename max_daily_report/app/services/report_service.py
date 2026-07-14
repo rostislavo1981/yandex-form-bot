@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.catalogs import (
@@ -25,9 +25,10 @@ from app.models.reports import (
     ResponsibleObjectAssignment,
 )
 from app.models.users import User
-from app.schemas.reports import (
-    ReportCreateRequest,
-)
+from app.schemas.reports import ReportCreateRequest
+
+DEFAULT_LIMIT = 20
+MAX_LIMIT = 50
 
 
 class ReportValidationError(ValueError):
@@ -112,6 +113,91 @@ class ReportService:
         await self._create_outbox_event(report)
         await self._session.commit()
         return report
+
+    async def list_reports(
+        self,
+        user: User,
+        date_from: date | None,
+        date_to: date | None,
+        object_id: int | None,
+        responsible_user_id: int | None,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[DailyReport], int]:
+        limit = max(1, min(limit, MAX_LIMIT))
+        offset = max(0, offset)
+        stmt = select(DailyReport)
+        if user.role == "responsible":
+            stmt = stmt.where(DailyReport.responsible_user_id == user.id)
+        if date_from is not None:
+            stmt = stmt.where(DailyReport.report_date >= date_from)
+        if date_to is not None:
+            stmt = stmt.where(DailyReport.report_date <= date_to)
+        if object_id is not None:
+            stmt = stmt.where(DailyReport.object_id == object_id)
+        if responsible_user_id is not None and user.role in ("manager", "admin"):
+            stmt = stmt.where(DailyReport.responsible_user_id == responsible_user_id)
+        stmt = stmt.order_by(DailyReport.report_date.desc(), DailyReport.id.desc())
+        total_result = await self._session.execute(
+            select(func.count()).select_from(stmt.subquery())
+        )
+        total = total_result.scalar() or 0
+        result = await self._session.execute(stmt.limit(limit).offset(offset))
+        return list(result.scalars().all()), total
+
+    async def submission_status(
+        self,
+        user: User,
+        target_date: date,
+    ) -> dict:
+        if user.role == "responsible":
+            obligations_stmt = select(ReportObligation).where(
+                ReportObligation.report_date == target_date,
+                ReportObligation.user_id == user.id,
+            )
+        else:
+            obligations_stmt = select(ReportObligation).where(
+                ReportObligation.report_date == target_date
+            )
+        result = await self._session.execute(obligations_stmt)
+        obligations = result.scalars().all()
+
+        expected = len(obligations)
+        submitted = sum(1 for o in obligations if o.status == "submitted")
+        late = sum(1 for o in obligations if o.status == "late")
+        pending = sum(1 for o in obligations if o.status == "pending")
+        missing = []
+        for o in obligations:
+            if o.status in ("pending", "missed"):
+                user_name = ""
+                object_code = ""
+                if o.user_id is not None:
+                    user_result = await self._session.execute(
+                        select(User).where(User.id == o.user_id)
+                    )
+                    user = user_result.scalar_one_or_none()
+                    if user is not None:
+                        user_name = user.full_name
+                if o.object_id is not None:
+                    object_result = await self._session.execute(
+                        select(Object).where(Object.id == o.object_id)
+                    )
+                    obj = object_result.scalar_one_or_none()
+                    if obj is not None:
+                        object_code = obj.code
+                missing.append(
+                    {
+                        "responsible": user_name,
+                        "object_code": object_code,
+                    }
+                )
+        return {
+            "expected": expected,
+            "submitted": submitted,
+            "late": late,
+            "pending": pending,
+            "missing": missing,
+        }
 
     async def _find_by_idempotency_key(self, key: str) -> DailyReport | None:
         result = await self._session.execute(

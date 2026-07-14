@@ -18,6 +18,8 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
+from app.models.catalogs import Object
+from app.models.users import User
 
 
 class ResponsibleObjectAssignment(Base):
@@ -92,6 +94,8 @@ class ReportObligation(Base):
     )
 
     assignment: Mapped[ResponsibleObjectAssignment] = relationship()
+    user: Mapped[User] = relationship()
+    object: Mapped[Object] = relationship()
 
 
 class DailyReport(Base):

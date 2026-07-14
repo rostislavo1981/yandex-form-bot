@@ -121,3 +121,21 @@ class ReportDetailResponse(BaseModel):
     works: list[ReportWorkResponse]
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class ReportListResponse(BaseModel):
+    items: list[ReportDetailResponse]
+    total: int
+
+
+class MissingReportItem(BaseModel):
+    responsible: str
+    object_code: str
+
+
+class SubmissionStatusResponse(BaseModel):
+    expected: int
+    submitted: int
+    late: int
+    pending: int
+    missing: list[MissingReportItem]

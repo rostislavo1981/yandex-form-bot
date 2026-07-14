@@ -21,11 +21,14 @@ def create_app() -> FastAPI:
     app.include_router(catalogs.router)
     app.include_router(import_export.router)
     app.include_router(reports.router)
+    app.include_router(reports.submission_router)
 
     @app.middleware("http")
     async def dev_user_middleware(request: Request, call_next):
         """Attach a real dev placeholder user for dev-only auth."""
-        if request.url.path.startswith("/api/reports"):
+        if request.url.path.startswith("/api/reports") or request.url.path.startswith(
+            "/api/submission-status"
+        ):
             async with AsyncSessionLocal() as session:
                 result = await session.execute(
                     select(User).where(User.max_user_id == "dev-user")
