@@ -11,6 +11,7 @@ from app.api import (
     health,
     import_export,
     reports,
+    scheduler,
     timesheet,
     webhook,
     worker,
@@ -37,6 +38,7 @@ def create_app() -> FastAPI:
     app.include_router(control_panel.router)
     app.include_router(worker.router)
     app.include_router(timesheet.router)
+    app.include_router(scheduler.router)
 
     @app.middleware("http")
     async def dev_user_middleware(request: Request, call_next):

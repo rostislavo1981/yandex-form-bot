@@ -27,19 +27,18 @@ I18 завершена. Excel экспорт табеля.
 | I16 | COMPLETED | Табель API |
 | I17 | COMPLETED | Табель UI |
 | I18 | COMPLETED | Excel табеля |
-| I19–I22 | WAIT | Выполняются строго по порядку |
+| I19 | COMPLETED | Scheduler reminders |
+| I20–I22 | WAIT | Выполняются строго по порядку |
 
-## Текущая итерация: I19
+## Текущая итерация: I20
 
-Следующий агент делает только I19 из `08_implementation_plan.md`.
+Следующий агент делает только I20 из `08_implementation_plan.md`.
 
-## Чек-лист I19
+## Чек-лист I20
 
-- [ ] Scheduler worker, advisory lock, create obligations.
-- [ ] Два вечерних reminder jobs.
-- [ ] Показывает только pending; ФИО + объекты.
-- [ ] Второй запуск не дублирует.
-- [ ] Timezone test.
+- [ ] Morning summary job.
+- [ ] Pending → missed at deadline.
+- [ ] Status counts + buttons.
 - [ ] Тесты и lint зелёные.
 - [ ] Обновлён `PROGRESS.md` и один коммит.
 

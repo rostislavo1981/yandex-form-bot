@@ -65,8 +65,8 @@ async def get_timesheet(
 @router.get("/{object_id}/export.xlsx")
 async def export_timesheet(
     object_id: int,
-    date_from: str = Query(...),
-    date_to: str = Query(...),
+    date_from: date = Query(...),
+    date_to: date = Query(...),
     request: Request = None,
     session: AsyncSession = Depends(get_session),
 ) -> StreamingResponse:
