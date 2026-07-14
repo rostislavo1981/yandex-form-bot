@@ -390,3 +390,122 @@ body,
   text-align: center;
   margin-top: 16px;
 }
+
+.admin-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.admin-tabs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.admin-tab {
+  white-space: nowrap;
+  padding: 8px 12px;
+  border: 1px solid #d0d0d0;
+  border-radius: 8px;
+  background: #ffffff;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.admin-tab.active {
+  background: #863bff;
+  color: #ffffff;
+  border-color: #863bff;
+}
+
+.admin-toolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.admin-table-wrap {
+  overflow-x: auto;
+  background: #ffffff;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  min-width: 600px;
+}
+
+.admin-table th,
+.admin-table td {
+  padding: 8px 10px;
+  border: 1px solid #e0e0e0;
+  text-align: left;
+}
+
+.admin-table th {
+  background: #f5f5f5;
+  font-weight: 500;
+}
+
+.admin-table input {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.admin-row-actions {
+  display: flex;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.admin-row-actions button {
+  padding: 6px 10px;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.admin-row-actions .btn-save {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.admin-row-actions .btn-edit {
+  background: #f0f0f0;
+  color: #333;
+}
+
+.admin-row-actions .btn-delete {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.admin-message {
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.admin-message.success {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.admin-message.error {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.admin-file-input {
+  font-size: 13px;
+}

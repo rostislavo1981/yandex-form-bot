@@ -4,10 +4,12 @@ from pathlib import Path
 
 import uvicorn
 from fastapi import FastAPI, Request
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select
 
 from app.api import (
+    admin_catalogs,
     auth,
     catalogs,
     control_panel,
@@ -35,6 +37,7 @@ def create_app() -> FastAPI:
     app.include_router(auth.router)
     app.include_router(catalogs.router)
     app.include_router(import_export.router)
+    app.include_router(admin_catalogs.router)
     app.include_router(reports.router)
     app.include_router(reports.submission_router)
     app.include_router(webhook.router)
@@ -68,7 +71,17 @@ def create_app() -> FastAPI:
 
     static_dir = Path(__file__).resolve().parent / "static"
     if static_dir.is_dir():
-        app.mount("/", StaticFiles(directory=str(static_dir), html=True), name="static")
+        index_path = static_dir / "index.html"
+
+        @app.get("/")
+        async def spa_index() -> FileResponse:
+            return FileResponse(str(index_path))
+
+        app.mount("/assets", StaticFiles(directory=str(static_dir / "assets")), name="assets")
+
+        @app.get("/{full_path:path}")
+        async def spa_fallback(full_path: str) -> FileResponse:
+            return FileResponse(str(index_path))
 
     return app
 

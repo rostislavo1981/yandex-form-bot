@@ -19,6 +19,10 @@ auth and auto-creates a placeholder user. In dev mode the frontend also uses
 a `dev` initData fallback so you can test the Mini App in a browser at
 `http://127.0.0.1:8080/` without launching it from MAX.
 
+The dev placeholder user is `dev-user` (role `responsible` until you run
+`python -m app.seed`, which creates `dev-user` with the `admin` role). In dev
+mode open `/admin/catalogs` to manage catalogs.
+
 ## Production deploy
 
 Target: a clean VPS with Docker Engine + Docker Compose plugin and ports 80/443
@@ -74,10 +78,14 @@ open.
    docker exec -e PYTHONPATH=/app mdr-api python -m app.seed
    ```
 
-   Seed creates two responsible users (`max-resp-1`, `max-resp-2`), two objects
-   (`obj-1`, `obj-2`) and assigns each responsible to one object with a daily
-   schedule. Create additional assignments through the control panel or admin
-   endpoints.
+   Seed creates two responsible users (`max-resp-1`, `max-resp-2`), a manager
+   (`max-manager-1`), a dev admin (`dev-user`), two objects (`obj-1`, `obj-2`)
+   and assigns each responsible to one object with a daily schedule.
+
+7. Open the admin page at `/admin/catalogs` (only managers/admins) to edit
+   objects, stages, contractors, units, equipment, work types, methods,
+   object-stage links, work-type-method links, responsible assignments and
+   users. Use the **Export Excel** / **Import** buttons to bulk-edit catalogs.
 
 ## Connecting to real MAX
 

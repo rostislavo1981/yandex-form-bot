@@ -27,6 +27,7 @@ SEED_USERS = [
     {"max_user_id": "max-manager-1", "full_name": "Петров М.И.", "role": "manager"},
     {"max_user_id": "max-resp-1", "full_name": "Иванов А.В.", "role": "responsible"},
     {"max_user_id": "max-resp-2", "full_name": "Сидоров К.П.", "role": "responsible"},
+    {"max_user_id": "dev-user", "full_name": "Dev User", "role": "admin"},
 ]
 
 SEED_GROUP = {"chat_id": "max-group-1", "title": "Строительный участок №1"}

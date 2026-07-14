@@ -58,11 +58,17 @@ async function request<T>(
   if (response.status === 204) {
     return undefined as T
   }
-  return (await response.json()) as T
+  const contentType = response.headers?.get?.('content-type') || ''
+  if (contentType.includes('application/json')) {
+    return (await response.json()) as T
+  }
+  return undefined as T
 }
 
 export const api = {
   get: <T>(path: string) => request<T>('GET', path),
   post: <T>(path: string, body: unknown, idempotencyKey?: string) =>
     request<T>('POST', path, body, idempotencyKey),
+  put: <T>(path: string, body: unknown) => request<T>('PUT', path, body),
+  delete: <T = void>(path: string) => request<T>('DELETE', path),
 }
