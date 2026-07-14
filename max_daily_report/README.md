@@ -29,6 +29,10 @@ open.
    # edit .env
    ```
 
+   For local Docker testing change `DATABASE_URL` host from `db` to
+   `localhost` and use `make db-up` / `make db-down`. For real production
+   set it back to `db` so containers can resolve each other.
+
 2. Required production variables:
 
    - `DOMAIN` — public domain pointed at the server (Caddy obtains HTTPS cert).
