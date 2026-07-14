@@ -28,17 +28,18 @@ I18 завершена. Excel экспорт табеля.
 | I17 | COMPLETED | Табель UI |
 | I18 | COMPLETED | Excel табеля |
 | I19 | COMPLETED | Scheduler reminders |
-| I20–I22 | WAIT | Выполняются строго по порядку |
+| I20 | COMPLETED | Утренняя сводка |
+| I21–I22 | WAIT | Выполняются строго по порядку |
 
-## Текущая итерация: I20
+## Текущая итерация: I21
 
-Следующий агент делает только I20 из `08_implementation_plan.md`.
+Следующий агент делает только I21 из `08_implementation_plan.md`.
 
-## Чек-лист I20
+## Чек-лист I21
 
-- [ ] Morning summary job.
-- [ ] Pending → missed at deadline.
-- [ ] Status counts + buttons.
+- [ ] Caddy HTTPS, compose app/scheduler/db/caddy.
+- [ ] Migrations at deploy, healthchecks, backup command.
+- [ ] Webhook registration runbook.
 - [ ] Тесты и lint зелёные.
 - [ ] Обновлён `PROGRESS.md` и один коммит.
 

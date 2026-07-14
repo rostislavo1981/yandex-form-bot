@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.catalogs import Object
@@ -69,6 +69,105 @@ class SchedulerService:
             return {"sent": 1, "skipped": 0}
         except Exception as exc:  # noqa: BLE001
             await self._record_failed(key, "evening_reminder", group_id, target, str(exc))
+            return {"sent": 0, "skipped": 0}
+        finally:
+            await client.close()
+
+    async def run_morning_summary(
+        self,
+        group_id: int,
+        target_date: date | None = None,
+    ) -> dict[str, int]:
+        """Send morning summary for the previous day (or explicit date).
+
+        Converts any remaining pending obligations for that date to missed,
+        computes counts and sends a group message with action buttons.
+        """
+        group = await self._session.get(MAXGroup, group_id)
+        if group is None or not group.active:
+            return {"sent": 0, "skipped": 0}
+
+        target = target_date or (_today_for_group(group) - timedelta(days=1))
+        key = f"morning_summary:{group_id}:{target.isoformat()}"
+
+        if await self._already_sent(key):
+            return {"sent": 0, "skipped": 1}
+
+        # pending -> missed for the target date
+        pending_result = await self._session.execute(
+            select(ReportObligation).where(
+                ReportObligation.report_date == target,
+                ReportObligation.status == "pending",
+            )
+        )
+        for obligation in pending_result.scalars().all():
+            obligation.status = "missed"
+        await self._session.flush()
+
+        # status counts for target date
+        counts_result = await self._session.execute(
+            select(ReportObligation.status, func.count())
+            .where(ReportObligation.report_date == target)
+            .group_by(ReportObligation.status)
+        )
+        status_counts = dict(counts_result.all())
+        late = status_counts.get("late", 0)
+        submitted_status = status_counts.get("submitted", 0)
+        submitted = submitted_status + late
+        missed = status_counts.get("missed", 0)
+        expected = submitted + missed
+
+        # missing list
+        missing_result = await self._session.execute(
+            select(ReportObligation, User, Object)
+            .join(User, ReportObligation.user_id == User.id)
+            .join(Object, ReportObligation.object_id == Object.id)
+            .where(ReportObligation.report_date == target)
+            .where(ReportObligation.status.in_(["pending", "missed"]))
+        )
+        missing = [
+            {"responsible": user.full_name, "object_code": obj.code}
+            for _obligation, user, obj in missing_result.unique().all()
+        ]
+
+        lines = [
+            f"📊 Утренняя сводка за {target}",
+            f"Всего: {expected}, сдано: {submitted}, с опозданием: {late}, пропущено: {missed}",
+        ]
+        if missing:
+            lines.append("")
+            lines.append("Не сдано:")
+            for item in missing:
+                lines.append(f"• {item['responsible']} — {item['object_code']}")
+        text = "\n".join(lines)
+
+        client = MAXClient()
+        try:
+            result = await client.send_message(
+                chat_id=group.chat_id,
+                text=text,
+                inline_keyboard=[
+                    [
+                        {"text": "📋 Статус", "callback_data": f"group_status:{group_id}"},
+                        {"text": "📈 Табель", "callback_data": f"timesheet:{group_id}"},
+                    ],
+                    [
+                        {"text": "📥 Excel", "callback_data": f"timesheet_excel:{group_id}"},
+                    ],
+                ],
+            )
+            message_id = str(result.get("msgId") or result.get("messageId") or "")
+            await self._record_sent(key, "morning_summary", group_id, target, message_id)
+            return {
+                "sent": 1,
+                "skipped": 0,
+                "expected": expected,
+                "submitted": submitted,
+                "late": late,
+                "missed": missed,
+            }
+        except Exception as exc:  # noqa: BLE001
+            await self._record_failed(key, "morning_summary", group_id, target, str(exc))
             return {"sent": 0, "skipped": 0}
         finally:
             await client.close()

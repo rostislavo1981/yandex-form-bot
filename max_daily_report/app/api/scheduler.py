@@ -42,3 +42,20 @@ async def run_evening_reminder(
         return await service.run_evening_reminder(group_id, reminder_number, target_date)
     finally:
         await service.release_lock(lock_id)
+
+
+@router.post("/morning-summary")
+async def run_morning_summary(
+    group_id: int = Query(...),
+    target_date: date | None = Query(None),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    service = SchedulerService(session)
+    lock_id = 3000
+    lock_acquired = await service.acquire_lock(lock_id)
+    if not lock_acquired:
+        raise HTTPException(status_code=409, detail="morning summary already running")
+    try:
+        return await service.run_morning_summary(group_id, target_date)
+    finally:
+        await service.release_lock(lock_id)
