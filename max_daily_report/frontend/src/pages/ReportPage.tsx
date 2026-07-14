@@ -1,8 +1,70 @@
+import { useCallback, useMemo, useState } from 'react'
+import { SearchSelect } from '../components/SearchSelect.tsx'
+import { searchObjects, searchStages } from '../api/catalogs.ts'
+import type { CatalogItem } from '../types/catalogs'
+
 export function ReportPage() {
+  const [object, setObject] = useState<CatalogItem | null>(null)
+  const [stage, setStage] = useState<CatalogItem | null>(null)
+  const [reportDate, setReportDate] = useState(() => {
+    const today = new Date()
+    return today.toISOString().split('T')[0]
+  })
+
+  const handleObjectChange = useCallback((item: CatalogItem | null) => {
+    setObject(item)
+    setStage(null)
+  }, [])
+
+  const stageSearch = useMemo(() => {
+    if (!object) return null
+    return (q: string) => searchStages(object.id, q).then((r) => r.items)
+  }, [object])
+
   return (
-    <div className="screen">
+    <div className="screen report-page">
       <h1>Новый отчёт</h1>
-      <p className="placeholder">Форма отчёта будет реализована в I10–I12.</p>
+      <form className="report-form" onSubmit={(e) => e.preventDefault()}>
+        <div className="field">
+          <label htmlFor="report-date" className="field-label">
+            Дата
+          </label>
+          <input
+            id="report-date"
+            type="date"
+            className="field-input"
+            value={reportDate}
+            onChange={(e) => setReportDate(e.target.value)}
+          />
+        </div>
+
+        <SearchSelect
+          label="Объект"
+          value={object}
+          onChange={handleObjectChange}
+          searchFn={useCallback((q) => searchObjects(q).then((r) => r.items), [])}
+          placeholder="Поиск объекта..."
+        />
+
+        {stageSearch && (
+          <SearchSelect
+            label="Этап"
+            value={stage}
+            onChange={setStage}
+            searchFn={stageSearch}
+            disabled={!object}
+            placeholder="Поиск этапа..."
+          />
+        )}
+
+        <div className="field">
+          <span className="field-label">Выбрано</span>
+          <p className="report-summary">
+            {object ? `${object.name} (${object.code})` : 'Объект не выбран'}
+            {stage && ` → ${stage.name} (${stage.code})`}
+          </p>
+        </div>
+      </form>
     </div>
   )
 }
