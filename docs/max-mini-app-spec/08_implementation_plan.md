@@ -57,6 +57,8 @@ DoD: valid preview показывает create/update; duplicate code и бит�
 
 DoD: round-trip export→validate; ошибка откатывает всё; отсутствующая строка не деактивируется.
 
+*Примечание: в I22 добавлена упрощённая web-админка `/admin/catalogs` для CRUD и Excel import/export; bulk-шаблоны остаются прежними.*
+
 ## I06 — Модель отчётов и obligations
 
 Читать: `03_data_model.md` разделы назначений и отчётов.
@@ -170,3 +172,5 @@ DoD: чистый VPS поднимается по README; реальные group
 Пройти полный чек-лист `09_testing_plan.md`, исправить только blockers, обновить документацию и tag release candidate.
 
 DoD: все automated tests, lint, TS build, real MAX smoke, Excel reconciliation, user acceptance на одном ответственном и двух объектах.
+
+*Примечание: в рамках финальной приёмки добавлена упрощённая админ-страница `/admin/catalogs` (CRUD + Excel import/export) для менеджеров/админов.*

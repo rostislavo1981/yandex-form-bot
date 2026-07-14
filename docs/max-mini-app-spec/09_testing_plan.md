@@ -4,9 +4,9 @@
 
 - Unit: нормализация поиска, MAX initData, агрегации, Excel parsing, scheduler time.
 - Integration с PostgreSQL: constraints, repos, транзакции, obligations, timesheet.
-- API через ASGITransport: auth, catalogs, reports, status, imports, export.
+- API через ASGITransport: auth, catalogs, admin catalogs, reports, status, imports, export.
 - MAX client: только mock HTTP; реальные токены в тестах запрещены.
-- Frontend: TypeScript build и минимум tests для SearchSelect/form validation.
+- Frontend: TypeScript build и минимум tests для SearchSelect/form validation и admin page API client.
 
 ## Обязательные регрессии
 
@@ -19,6 +19,7 @@
 7. Утренний список содержит ФИО и каждый несданный объект.
 8. Responsible не видит чужие объекты; manager видит все.
 9. Excel totals равны timesheet API.
+10. Admin endpoints отклоняют `responsible`; soft-delete только деактивирует запись.
 
 ## Ручная приёмка MAX
 
@@ -39,6 +40,7 @@
 - Ошибки сети и валидации понятны.
 - Табель 31 день usable на телефоне.
 - Excel скачивается по HTTPS и открывается.
+- Страница `/admin/catalogs` доступна только manager/admin; добавление/редактирование/удаление строк справочников отражается в форме отчёта и Excel-экспорте.
 
 ## Команды перед handoff
 

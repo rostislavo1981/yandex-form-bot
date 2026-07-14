@@ -4,6 +4,32 @@
 
 PostgreSQL — источник истины. Excel — транспорт для массового изменения.
 
+## Web-админка `/admin/catalogs`
+
+Доступ: `manager` и `admin`. Экран в Mini App содержит табы:
+
+- Объекты
+- Этапы
+- Подрядчики
+- Единицы измерения
+- Техника
+- Виды работ
+- Способы работ
+- Этапы объектов
+- Способы видов работ
+- Назначения
+- Пользователи
+
+Каждая таблица поддерживает inline-добавление, inline-редактирование и soft-delete (`active=false`).
+
+Кнопки в тулбаре:
+
+- **Экспорт Excel** — скачивает `/api/catalogs/export.xlsx`.
+- **Шаблон Excel** — скачивает пустой `/api/catalogs/template.xlsx`.
+- **Импорт** — upload `.xlsx` в `/api/catalogs/import/validate`, затем apply.
+
+Админ-страница не заменяет Excel bulk-загрузку, а дополняет её быстрым поштучным редактированием.
+
 ## Шаблон
 
 Листы: `Users`, `Objects`, `Stages`, `ObjectStages`, `Contractors`, `Units`, `Equipment`, `WorkTypes`, `WorkMethods`, `WorkTypeMethods`, `Assignments`.

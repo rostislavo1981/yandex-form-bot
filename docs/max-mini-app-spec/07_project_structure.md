@@ -8,8 +8,10 @@ max_daily_report/
 ├── .env.example
 ├── Dockerfile
 ├── docker-compose.yml
+├── docker-compose.prod.yml
 ├── Caddyfile
 ├── Makefile
+├── README.md
 ├── app/
 │   ├── main.py
 │   ├── config.py
@@ -21,49 +23,47 @@ max_daily_report/
 │   │   ├── reports.py
 │   │   └── operations.py
 │   ├── schemas/
+│   │   ├── admin_catalogs.py
+│   │   └── ...
 │   ├── api/
 │   │   ├── health.py
 │   │   ├── auth.py
 │   │   ├── catalogs.py
+│   │   ├── admin_catalogs.py
 │   │   ├── reports.py
 │   │   ├── status.py
 │   │   ├── timesheet.py
-│   │   └── import_export.py
+│   │   ├── import_export.py
+│   │   ├── control_panel.py
+│   │   ├── scheduler.py
+│   │   └── webhook.py
 │   ├── services/
-│   │   ├── catalog_service.py
-│   │   ├── report_service.py
-│   │   ├── obligation_service.py
-│   │   ├── notification_service.py
-│   │   ├── timesheet_service.py
-│   │   └── excel_service.py
 │   ├── repos/
 │   ├── max/
-│   │   ├── client.py
-│   │   ├── auth.py
-│   │   ├── keyboards.py
-│   │   ├── handlers.py
-│   │   └── webhook.py
 │   ├── scheduler/
-│   │   ├── main.py
-│   │   └── jobs.py
 │   └── seed.py
 ├── frontend/
 │   ├── package.json
 │   ├── vite.config.ts
 │   └── src/
-│       ├── api.ts
-│       ├── auth.ts
+│       ├── api/
+│       │   ├── client.ts
+│       │   └── admin.ts
+│       ├── auth/
 │       ├── pages/
 │       │   ├── ReportForm.tsx
 │       │   ├── Reports.tsx
 │       │   ├── Timesheet.tsx
-│       │   └── SubmissionStatus.tsx
-│       └── components/
-│           ├── SearchSelect.tsx
-│           ├── EquipmentRows.tsx
-│           ├── WorkRows.tsx
-│           └── ControlBar.tsx
-├── templates/catalogs.xlsx
+│       │   ├── SubmissionStatus.tsx
+│       │   └── AdminCatalogsPage.tsx
+│       ├── components/
+│       │   ├── SearchSelect.tsx
+│       │   ├── EquipmentRows.tsx
+│       │   ├── WorkRows.tsx
+│       │   └── ControlBar.tsx
+│       ├── types/
+│       │   └── admin.ts
+│       └── hooks/
 └── tests/
 ```
 

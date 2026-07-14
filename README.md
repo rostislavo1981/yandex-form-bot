@@ -1,6 +1,6 @@
 # Yandex Form Bot
 
-> Этот README описывает существующий V1. Окончательное ТЗ нового MVP (Mini App, динамические справочники, группа MAX, табели по объектам) находится в [`docs/max-mini-app-spec/SUMMARY.md`](docs/max-mini-app-spec/SUMMARY.md). Новый код по плану создаётся отдельно в `max_daily_report/`.
+> Этот README описывает существующий V1. Окончательное ТЗ нового MVP (Mini App, динамические справочники, группа MAX, табели по объектам, упрощённая админка `/admin/catalogs`) находится в [`docs/max-mini-app-spec/SUMMARY.md`](docs/max-mini-app-spec/SUMMARY.md). Рабочий код нового MVP — в `max_daily_report/`, его README и инструкции по запуску см. в [`max_daily_report/README.md`](max_daily_report/README.md).
 
 MAX-бот + YandexGPT + Яндекс.Формы для ежедневных отчётов прорабов.
 
@@ -118,10 +118,12 @@ E2E smoke (проверяет pipeline → DB → API → Mini App JSON):
 
 ## Документация
 
-- `docs/api.md` — REST API для Mini App
-- `docs/architecture.md` — компоненты и поток данных
-- `docs/deploy.md` — деплой на Mac / RPi / VPS
-- `docs/roadmap.md` — что дальше
+- `docs/max-mini-app-spec/SUMMARY.md` — окончательное ТЗ нового MVP (Mini App-first)
+- `docs/max-mini-app-spec/04_api_contract.md` — актуальный REST-контракт, включая `/api/admin/catalogs`
+- `docs/api.md` — архивный REST API V1
+- `docs/architecture.md` — архивная архитектура V1
+- `docs/deploy.md` — архивный деплой V1 (новый MVP — `max_daily_report/README.md`)
+- `docs/roadmap.md` — исторический roadmap V1
 
 ## Стек
 

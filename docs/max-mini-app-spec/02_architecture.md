@@ -14,6 +14,7 @@ MAX group / private bot
 │ FastAPI app                         │
 │ /webhook/max                        │
 │ /api/auth, /api/catalogs            │
+│ /api/admin/catalogs                 │
 │ /api/reports, /api/timesheet        │
 │ /api/import, /api/export.xlsx       │
 │ собранная статика Mini App          │
@@ -55,6 +56,10 @@ Caddy: HTTPS и reverse proxy на app
 В БД хранятся нормализованные строки. Широкая таблица `показатель × дни` строится запросом при чтении и экспорте. Отдельные дневные колонки в БД запрещены.
 
 Группировка: объект → категория → показатель → единица → день. Суммировать разные единицы нельзя.
+
+## Управление справочниками
+
+Администратор/менеджер редактирует каталоги в Mini App на экране `/admin/catalogs`: табы для объектов, этапов, подрядчиков, единиц, техники, видов и способов работ, связей и назначений. Soft-delete через `active=false`. Bulk-загрузка через Excel (`/api/catalogs/import/*`, `/api/catalogs/export.xlsx`).
 
 ## Поиск
 

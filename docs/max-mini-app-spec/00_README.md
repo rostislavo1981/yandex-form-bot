@@ -16,7 +16,7 @@
 | `03_data_model.md` | PostgreSQL-модель и инварианты |
 | `04_api_contract.md` | REST-контракт |
 | `05_max_integration.md` | MAX API, Bridge, кнопки, auth |
-| `06_frontend_spec.md` | Mini App UX |
+| `06_frontend_spec.md` | Mini App UX, включая `/admin/catalogs` |
 | `07_project_structure.md` | Дерево нового кода |
 | `08_implementation_plan.md` | Единственный план I00–I22 |
 | `09_testing_plan.md` | Автоматическая и ручная приёмка |

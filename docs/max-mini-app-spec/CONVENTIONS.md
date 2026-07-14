@@ -21,7 +21,7 @@
 
 - Strict, функциональные компоненты, hooks, без `any`.
 - `PascalCase.tsx` для компонентов, `useCamelCase.ts` для hooks.
-- API типы централизованы в `frontend/src/api.ts`.
+- API типы централизованы в `frontend/src/api/` и `frontend/src/types/`.
 - Обязательны loading/empty/error/success состояния.
 
 ## БД

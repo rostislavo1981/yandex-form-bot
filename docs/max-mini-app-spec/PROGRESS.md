@@ -86,11 +86,16 @@ I22 завершена. MVP готов к release candidate `v0.1.0-rc1`.
   стек можно тестировать в браузере без MAX.
 - `app/main.py`: dev-only middleware теперь включается только при `APP_ENV=dev`,
   а не по `DEBUG=true`, чтобы тесты `test_auth.py` оставались корректными при
-  любом `.env`.
+  любом `.env`. Добавлен SPA fallback (`/`, `/{full_path:path}`) для глубоких
+  frontend-маршрутов, включая `/admin/catalogs`.
 - `Makefile`: цель `test` принудительно использует `DATABASE_URL` с хостом
   `localhost`, чтобы `pytest` работал параллельно с Docker-стеком на хосте.
+- Добавлена упрощённая web-админка `/admin/catalogs` (backend + frontend):
+  CRUD для всех каталогов под `/api/admin/catalogs`, inline-редактирование,
+  Excel import/export. Soft-delete для всех справочников.
 - Проверен end-to-end в Docker: `/api/auth/me`, `/api/catalogs/*`,
-  `POST /api/reports`, `/api/submission-status`, `/api/timesheet/*`.
+  `POST /api/reports`, `/api/submission-status`, `/api/timesheet/*`,
+  `/api/admin/catalogs/*`, `/admin/catalogs`.
 
 **Следующий единственный шаг:**
 - Пользователь запускает `make prod-up` на VPS (с `DATABASE_URL=...db:5432...`),
@@ -105,6 +110,22 @@ I22 завершена. MVP готов к release candidate `v0.1.0-rc1`.
 - `max_daily_report/.gitignore`
 - `max_daily_report/app/seed.py`
 - `max_daily_report/app/main.py`
+- `max_daily_report/app/api/admin_catalogs.py`
+- `max_daily_report/app/schemas/admin_catalogs.py`
 - `max_daily_report/frontend/.env.production`
 - `max_daily_report/frontend/src/api/client.ts`
+- `max_daily_report/frontend/src/api/admin.ts`
+- `max_daily_report/frontend/src/pages/AdminCatalogsPage.tsx`
+- `max_daily_report/frontend/src/types/admin.ts`
+- `max_daily_report/frontend/src/components/Layout.tsx`
+- `max_daily_report/frontend/src/styles/index.css`
+- `docs/max-mini-app-spec/SUMMARY.md`
+- `docs/max-mini-app-spec/01_overview.md`
+- `docs/max-mini-app-spec/02_architecture.md`
+- `docs/max-mini-app-spec/04_api_contract.md`
+- `docs/max-mini-app-spec/06_frontend_spec.md`
+- `docs/max-mini-app-spec/07_project_structure.md`
+- `docs/max-mini-app-spec/08_implementation_plan.md`
+- `docs/max-mini-app-spec/09_testing_plan.md`
+- `docs/max-mini-app-spec/13_catalogs_excel.md`
 - `docs/max-mini-app-spec/PROGRESS.md`

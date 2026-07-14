@@ -8,7 +8,8 @@
 - `/reports` — список доступных отчётов.
 - `/timesheet` — табель по объекту и периоду.
 - `/status` — статус сдачи (manager/admin).
-- `/catalog-import` — только upload/preview/apply Excel (admin; можно скрыть до последней итерации).
+- `/admin/catalogs` — управление справочниками (manager/admin): табы, inline CRUD, Excel import/export.
+- `/catalog-import` — прямой upload/preview/apply Excel (admin; резерв).
 
 ## Форма
 
@@ -47,4 +48,4 @@
 
 ## Не делать в MVP
 
-Redux, UI framework, offline sync, полноценную админку, графики, редактирование отправленного отчёта.
+Redux, UI framework, offline sync, сложную админку, графики, редактирование отправленного отчёта.

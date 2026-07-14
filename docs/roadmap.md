@@ -23,7 +23,7 @@
 - [ ] **Production secrets** (Vault / K8s secrets)
 
 ### Средний
-- [ ] **Inline-редактирование** в Mini App (PATCH /api/submissions/{id})
+- [x] **Inline-редактирование** справочников в Mini App (`/admin/catalogs`) — done in I22
 - [ ] **Дашборд**: графики работ/людей/грунта по дням (Chart.js)
 - [ ] **Уведомления** прорабам в 20:00 (cron → MAX)
 - [ ] **Фильтр по объекту** (сейчас только foreman)

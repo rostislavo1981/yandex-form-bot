@@ -1,12 +1,12 @@
 # 04. API-контракт MVP
 
-Все `/api/*`, кроме `/api/health`, требуют `X-Auth-InitData`. Ошибка: `{"detail":"Сообщение по-русски"}`.
+Все `/api/*`, кроме `/api/health`, требуют заголовок `X-Init-Data`. Ошибка: `{"detail":"Сообщение по-русски"}`.
 
 ## Системные endpoints
 
 - `GET /api/health` → `{"status":"ok","version":"..."}`.
-- `POST /webhook/max` — updates MAX, защищён webhook secret по официальному контракту.
-- `GET /api/me` — текущий пользователь, роль, группа и назначенные объекты.
+- `POST /api/webhook/max` — updates MAX, защищён webhook secret по официальному контракту.
+- `GET /api/auth/me` — текущий пользователь, роль, группа и назначенные объекты.
 
 ## Каталоги
 
@@ -25,6 +25,45 @@
 ```json
 {"items":[{"id":42,"code":"OBJ-BOG-04","name":"Богословская КЛ 0,4 кВ"}],"total":1}
 ```
+
+## Admin каталоги
+
+Доступ: роль `manager` или `admin`. Удаление — soft-delete (`active = false`).
+
+Общий префикс: `/api/admin/catalogs`.
+
+- `GET /api/admin/catalogs/objects` — список.
+- `POST /api/admin/catalogs/objects` — создать.
+- `PUT /api/admin/catalogs/objects/{id}` — обновить.
+- `DELETE /api/admin/catalogs/objects/{id}` — деактивировать.
+
+Аналогично:
+
+- `/api/admin/catalogs/stages`
+- `/api/admin/catalogs/contractors`
+- `/api/admin/catalogs/units`
+- `/api/admin/catalogs/equipment`
+- `/api/admin/catalogs/work-types`
+- `/api/admin/catalogs/work-methods`
+
+Связные таблицы (только create/delete):
+
+- `GET /api/admin/catalogs/object-stages`
+- `POST /api/admin/catalogs/object-stages` (`object_id`, `stage_id`, `active`)
+- `DELETE /api/admin/catalogs/object-stages/{id}`
+- `GET /api/admin/catalogs/work-type-methods`
+- `POST /api/admin/catalogs/work-type-methods` (`work_type_id`, `work_method_id`, `active`)
+- `DELETE /api/admin/catalogs/work-type-methods/{id}`
+
+Назначения и пользователи:
+
+- `GET /api/admin/catalogs/assignments`
+- `POST /api/admin/catalogs/assignments` (`user_id`, `object_id`, `active_from`, `active_to`, `schedule_type`, `active`)
+- `DELETE /api/admin/catalogs/assignments/{id}`
+- `GET /api/admin/catalogs/users`
+- `POST /api/admin/catalogs/users` (`max_user_id`, `full_name`, `role`, `active`)
+- `PUT /api/admin/catalogs/users/{id}`
+- `DELETE /api/admin/catalogs/users/{id}`
 
 ## Отчёты
 
