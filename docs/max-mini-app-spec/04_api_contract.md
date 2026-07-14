@@ -7,6 +7,7 @@
 - `GET /api/health` → `{"status":"ok","version":"..."}`.
 - `POST /api/webhook/max` — updates MAX, защищён webhook secret по официальному контракту.
 - `GET /api/auth/me` — текущий пользователь, роль, группа и назначенные объекты.
+- `POST /api/webhook/max` — входящий webhook от MAX (защищён `X-Hub-Signature`-подобным секретом).
 
 ## Каталоги
 
@@ -107,7 +108,7 @@ Response 201: `{"id":42,"status":"submitted","late":false}`.
 
 ## Табель
 
-- `GET /api/timesheet?object_id=10&date_from=&date_to=`.
+- `GET /api/timesheet/{object_id}?date_from=&date_to=`. Объектный ID передаётся в path.
 
 ```json
 {
@@ -125,13 +126,13 @@ Response 201: `{"id":42,"status":"submitted","late":false}`.
 }
 ```
 
-- `GET /api/timesheet.xlsx?date_from=&date_to=&object_id=` — один объект или книга со всеми объектами.
+- `GET /api/timesheet/{object_id}/export.xlsx?date_from=&date_to=` — экспорт табеля одного объекта.
 
 ## Excel-справочники (admin)
 
 - `GET /api/catalogs/template.xlsx`.
 - `GET /api/catalogs/export.xlsx`.
 - `POST /api/catalogs/import/validate` — загрузка и preview без изменений.
-- `POST /api/catalogs/import/{import_id}/apply` — транзакционное применение проверенного импорта.
+- `POST /api/catalogs/import/{import_id}/apply` — *зарезервировано; не реализовано*. В текущей версии применение выполняется сразу через `POST /api/catalogs/import/apply`.
 
 Импорт напрямую без validate запрещён.

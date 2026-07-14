@@ -4,7 +4,7 @@
 
 - Unit: нормализация поиска, MAX initData, агрегации, Excel parsing, scheduler time.
 - Integration с PostgreSQL: constraints, repos, транзакции, obligations, timesheet.
-- API через ASGITransport: auth, catalogs, admin catalogs, reports, status, imports, export.
+- API через ASGITransport: auth, catalogs, admin catalogs (`tests/test_admin_catalogs.py`), reports, status, imports, export.
 - MAX client: только mock HTTP; реальные токены в тестах запрещены.
 - Frontend: TypeScript build и минимум tests для SearchSelect/form validation и admin page API client.
 

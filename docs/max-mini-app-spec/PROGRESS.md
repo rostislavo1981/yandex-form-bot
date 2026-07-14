@@ -62,7 +62,7 @@ I22 завершена. MVP готов к release candidate `v0.1.0-rc1`.
 
 **Проверки:**
 - `make lint` → All checks passed!
-- `make test` → 64 passed, 7 warnings.
+- `make test` → 74 passed, 7 warnings.
 - `make frontend-check`:
   - `npm run build` → successful (`dist/index.html`, `dist/assets/...`).
   - `vitest run` → Test Files 6 passed (6), Tests 10 passed (10).
@@ -93,6 +93,14 @@ I22 завершена. MVP готов к release candidate `v0.1.0-rc1`.
 - Добавлена упрощённая web-админка `/admin/catalogs` (backend + frontend):
   CRUD для всех каталогов под `/api/admin/catalogs`, inline-редактирование,
   Excel import/export. Soft-delete для всех справочников.
+- Добавлен и зелёный `tests/test_admin_catalogs.py` (10 тестов): CRUD/soft-delete
+  для объектов, этапов, подрядчиков, единиц, техники, видов/способов работ,
+  связных таблиц, назначений и пользователей, а также отказ `responsible`.
+  Исправлены list-эндпоинты связных сущностей: `selectinload` вместо lazy load;
+  в `ResponsibleObjectAssignment` добавлены relationships `user`/`object`.
+- Улучшен UX админки: выпадающие подсказки по коду/названию для связных полей
+  (`object_id`, `stage_id`, `work_type_id`, `work_method_id`, `user_id`,
+  `default_unit_id`, `default_contractor_id`) вместо ввода сырых ID.
 - Проверен end-to-end в Docker: `/api/auth/me`, `/api/catalogs/*`,
   `POST /api/reports`, `/api/submission-status`, `/api/timesheet/*`,
   `/api/admin/catalogs/*`, `/admin/catalogs`.
@@ -111,7 +119,9 @@ I22 завершена. MVP готов к release candidate `v0.1.0-rc1`.
 - `max_daily_report/app/seed.py`
 - `max_daily_report/app/main.py`
 - `max_daily_report/app/api/admin_catalogs.py`
+- `max_daily_report/app/models/reports.py`
 - `max_daily_report/app/schemas/admin_catalogs.py`
+- `max_daily_report/tests/test_admin_catalogs.py`
 - `max_daily_report/frontend/.env.production`
 - `max_daily_report/frontend/src/api/client.ts`
 - `max_daily_report/frontend/src/api/admin.ts`

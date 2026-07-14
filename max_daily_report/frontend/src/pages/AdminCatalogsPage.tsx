@@ -33,6 +33,26 @@ const TABS: { key: CatalogTab; label: string }[] = [
 
 type EditableRow = Record<string, unknown>
 
+interface CatalogOptions {
+  objects: AdminObject[]
+  stages: AdminCatalogItem[]
+  contractors: AdminCatalogItem[]
+  units: AdminUnit[]
+  workTypes: AdminWorkType[]
+  workMethods: AdminCatalogItem[]
+  users: AdminUser[]
+}
+
+const EMPTY_OPTIONS: CatalogOptions = {
+  objects: [],
+  stages: [],
+  contractors: [],
+  units: [],
+  workTypes: [],
+  workMethods: [],
+  users: [],
+}
+
 export function AdminCatalogsPage() {
   const { user, loading: authLoading, error: authError } = useAuth()
   const [activeTab, setActiveTab] = useState<CatalogTab>('objects')
@@ -43,6 +63,7 @@ export function AdminCatalogsPage() {
   const [editForm, setEditForm] = useState<EditableRow>({})
   const [importFile, setImportFile] = useState<File | null>(null)
   const [importResult, setImportResult] = useState<string | null>(null)
+  const [options, setOptions] = useState<CatalogOptions>(EMPTY_OPTIONS)
 
   const isManager = user?.role === 'manager' || user?.role === 'admin'
 
@@ -101,6 +122,34 @@ export function AdminCatalogsPage() {
     setImportResult(null)
     void load()
   }, [load])
+
+  useEffect(() => {
+    if (!isManager) return
+    let cancelled = false
+    async function loadOptions() {
+      try {
+        const [objects, stages, contractors, units, workTypes, workMethods, users] =
+          await Promise.all([
+            api.listObjects(),
+            api.listStages(),
+            api.listContractors(),
+            api.listUnits(),
+            api.listWorkTypes(),
+            api.listWorkMethods(),
+            api.listAdminUsers(),
+          ])
+        if (!cancelled) {
+          setOptions({ objects, stages, contractors, units, workTypes, workMethods, users })
+        }
+      } catch {
+        //Hints are best-effort; the active tab loader reports real errors.
+      }
+    }
+    void loadOptions()
+    return () => {
+      cancelled = true
+    }
+  }, [isManager])
 
   const handleAdd = () => {
     setEditingId('new')
@@ -408,14 +457,14 @@ export function AdminCatalogsPage() {
                 </tr>
               </thead>
               <tbody>
-                {editingId === 'new' && renderEditRow(activeTab, editForm, setEditForm)}
+                {editingId === 'new' && renderEditRow(activeTab, editForm, setEditForm, options)}
                 {items.map((row) => {
                   const id = (row as { id: number }).id
                   const isEditing = editingId === id
                   return (
                     <tr key={id} className={isEditing ? 'editing' : ''}>
                       {isEditing
-                        ? renderEditRow(activeTab, editForm, setEditForm)
+                        ? renderEditRow(activeTab, editForm, setEditForm, options)
                         : renderViewRow(activeTab, row as Record<string, unknown>)}
                       <td className="actions">
                         {isEditing ? (
@@ -563,6 +612,7 @@ function renderEditRow(
   tab: CatalogTab,
   form: EditableRow,
   setForm: (value: EditableRow) => void,
+  options: CatalogOptions,
 ): JSX.Element {
   const update = (patch: EditableRow) => setForm({ ...form, ...patch })
 
@@ -585,6 +635,50 @@ function renderEditRow(
     </select>
   )
 
+  const selectField = (
+    key: string,
+    placeholder: string,
+    items: { id: number; label: string }[],
+    allowNull = false,
+  ) => {
+    const current = (form[key] as number | undefined) ?? (allowNull ? null : 0)
+    return (
+      <select
+        value={current ? String(current) : ''}
+        onChange={(e) =>
+          update({
+            [key]:
+              e.target.value === '' ? (allowNull ? null : 0) : Number(e.target.value),
+          })
+        }
+      >
+        <option value="">{placeholder}</option>
+        {items.map((item) => (
+          <option key={item.id} value={item.id}>
+            {item.label}
+          </option>
+        ))}
+      </select>
+    )
+  }
+
+  const unitOptions = options.units.map((u) => ({ id: u.id, label: `${u.code} — ${u.name}` }))
+  const contractorOptions = options.contractors.map((c) => ({ id: c.id, label: `${c.code} — ${c.name}` }))
+  const objectOptions = options.objects.map((o) => ({ id: o.id, label: `${o.code} — ${o.name}` }))
+  const stageOptions = options.stages.map((s) => ({ id: s.id, label: `${s.code} — ${s.name}` }))
+  const workTypeOptions = options.workTypes.map((wt) => ({
+    id: wt.id,
+    label: `${wt.code} — ${wt.name}`,
+  }))
+  const workMethodOptions = options.workMethods.map((wm) => ({
+    id: wm.id,
+    label: `${wm.code} — ${wm.name}`,
+  }))
+  const userOptions = options.users.map((u) => ({
+    id: u.id,
+    label: `${u.full_name} (${u.max_user_id})`,
+  }))
+
   switch (tab) {
     case 'objects':
       return (
@@ -602,7 +696,7 @@ function renderEditRow(
               <option value="contractor">Подрядчик</option>
             </select>
           </td>
-          <td>{textField('default_contractor_id', 'ID подрядчика', 'number')}</td>
+          <td>{selectField('default_contractor_id', 'Подрядчик...', contractorOptions, true)}</td>
           <td>{boolField('active')}</td>
           <td>{textField('sort_order', 'Порядок', 'number')}</td>
         </>
@@ -623,7 +717,7 @@ function renderEditRow(
         <>
           <td>{textField('code', 'Код')}</td>
           <td>{textField('name', 'Название')}</td>
-          <td>{textField('default_unit_id', 'ID единицы', 'number')}</td>
+          <td>{selectField('default_unit_id', 'Единица...', unitOptions, true)}</td>
           <td>{boolField('active')}</td>
           <td>{textField('sort_order', 'Порядок', 'number')}</td>
         </>
@@ -631,8 +725,8 @@ function renderEditRow(
     case 'object-stages': {
       return (
         <>
-          <td>{textField('object_id', 'ID объекта', 'number')}</td>
-          <td>{textField('stage_id', 'ID этапа', 'number')}</td>
+          <td>{selectField('object_id', 'Объект...', objectOptions)}</td>
+          <td>{selectField('stage_id', 'Этап...', stageOptions)}</td>
           <td>{boolField('active')}</td>
         </>
       )
@@ -640,16 +734,16 @@ function renderEditRow(
     case 'work-type-methods':
       return (
         <>
-          <td>{textField('work_type_id', 'ID вида работы', 'number')}</td>
-          <td>{textField('work_method_id', 'ID способа', 'number')}</td>
+          <td>{selectField('work_type_id', 'Вид работы...', workTypeOptions)}</td>
+          <td>{selectField('work_method_id', 'Способ...', workMethodOptions)}</td>
           <td>{boolField('active')}</td>
         </>
       )
     case 'assignments':
       return (
         <>
-          <td>{textField('user_id', 'ID пользователя', 'number')}</td>
-          <td>{textField('object_id', 'ID объекта', 'number')}</td>
+          <td>{selectField('user_id', 'Пользователь...', userOptions)}</td>
+          <td>{selectField('object_id', 'Объект...', objectOptions)}</td>
           <td>{textField('active_from', 'YYYY-MM-DD', 'date')}</td>
           <td>{textField('active_to', 'YYYY-MM-DD', 'date')}</td>
           <td>

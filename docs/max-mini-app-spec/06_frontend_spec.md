@@ -8,7 +8,7 @@
 - `/reports` — список доступных отчётов.
 - `/timesheet` — табель по объекту и периоду.
 - `/status` — статус сдачи (manager/admin).
-- `/admin/catalogs` — управление справочниками (manager/admin): табы, inline CRUD, Excel import/export.
+- `/admin/catalogs` — управление справочниками (manager/admin): табы, inline CRUD, Excel import/export. Для связных таблиц (`object-stages`, `work-type-methods`, `assignments`) и полей `default_unit_id`/`default_contractor_id` используются выпадающие подсказки по коду/названию вместо сырых ID.
 - `/catalog-import` — прямой upload/preview/apply Excel (admin; резерв).
 
 ## Форма

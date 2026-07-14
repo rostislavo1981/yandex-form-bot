@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.deps import get_session
 from app.models.catalogs import (
@@ -719,6 +720,7 @@ async def list_object_stages(
         .join(Object)
         .join(Stage)
         .order_by(Object.code, Stage.name)
+        .options(selectinload(ObjectStage.object), selectinload(ObjectStage.stage))
     )
     rows = result.scalars().all()
     return [
@@ -805,6 +807,10 @@ async def list_work_type_methods(
         .join(WorkType)
         .join(WorkMethod)
         .order_by(WorkType.code, WorkMethod.name)
+        .options(
+            selectinload(WorkTypeMethod.work_type),
+            selectinload(WorkTypeMethod.work_method),
+        )
     )
     rows = result.scalars().all()
     return [
@@ -891,6 +897,10 @@ async def list_assignments(
         .join(User)
         .join(Object)
         .order_by(User.full_name, Object.code)
+        .options(
+            selectinload(ResponsibleObjectAssignment.user),
+            selectinload(ResponsibleObjectAssignment.object),
+        )
     )
     rows = result.scalars().all()
     return [

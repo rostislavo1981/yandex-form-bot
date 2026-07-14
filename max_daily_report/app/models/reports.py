@@ -48,6 +48,9 @@ class ResponsibleObjectAssignment(Base):
         nullable=False,
     )
 
+    user: Mapped[User] = relationship(foreign_keys=[user_id])
+    object: Mapped[Object] = relationship(foreign_keys=[object_id])
+
 
 class ReportObligation(Base):
     __tablename__ = "report_obligations"
