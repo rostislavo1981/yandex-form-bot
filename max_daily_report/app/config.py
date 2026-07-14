@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     max_bot_token: str = ""
     max_webhook_secret: str = ""
     max_group_id: str = ""
+    max_api_base_url: str = "https://platform-api2.max.ru"
 
     host: str = "0.0.0.0"
     port: int = 8000
