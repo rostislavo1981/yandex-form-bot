@@ -1,6 +1,15 @@
 # 04. API-контракт MVP
 
-Актуальность: 2026-07-14. Все `/api/*`, кроме `/api/health`, требуют заголовок `X-Init-Data`. Ошибки возвращаются как `{"detail":"Сообщение по-русски"}`.
+Актуальность: 2026-07-15 (после FIXLIST F1–F6).
+
+Авторизация:
+
+- Все `/api/*`, кроме `/api/health`, `/api/webhook/max`, `/api/scheduler/*` и `/api/worker/*`, требуют заголовок `X-Init-Data` (initData из MAX Bridge). Проверка выполняется общим dependency `require_user` на каждом роутере.
+- В dev (`APP_ENV=dev`) допускается `X-Init-Data: dev` — подставляется placeholder-пользователь. `DEBUG=true` этот режим **не** включает.
+- `/api/scheduler/*` и `/api/worker/*` — внутренние: требуют `X-Internal-Token` = `INTERNAL_TOKEN` из env; при пустом токене доступ разрешён только в dev.
+- `/api/webhook/max` — подпись `x-signature` (HMAC-SHA256 от тела с `MAX_WEBHOOK_SECRET`).
+
+Ошибки возвращаются как `{"detail":"Сообщение по-русски"}` (или `{"detail":{"error":"..."}}` от бизнес-валидации).
 
 ## Системные endpoints
 
@@ -93,7 +102,7 @@
 
 ### `POST /api/reports`
 
-Заголовок `Idempotency-Key` обязателен.
+Заголовок `Idempotency-Key` обязателен (повтор с тем же ключом возвращает тот же отчёт).
 
 ```json
 {
@@ -101,6 +110,7 @@
   "object_id":10,
   "stage_id":100,
   "contractor_id":null,
+  "responsible_user_id":null,
   "staff":{"itr":1,"internal":5,"external":2},
   "soil_export_m3":24,
   "equipment":[{"equipment_type_id":7,"ownership":"own","unit_id":1,"quantity":8}],
@@ -109,14 +119,24 @@
 }
 ```
 
+- `responsible_user_id` — опционально; заполняется только manager/admin для подачи отчёта за ответственного. Для роли responsible любое значение, кроме собственного id, отклоняется 422.
+- Валидация: `staff.* >= 0`; количества строк `> 0`; отчёт обязан содержать хотя бы один факт — технику, работу, персонал или `soil_export_m3 > 0` (ноль фактом не считается); этап должен быть связан с объектом; contractor-объект требует `contractor_id`; у ответственного должно быть активное назначение на объект и дату.
+- Если сдача происходит после `due_at` обязательства — obligation помечается `late` (в ответе `late:true`).
+
 Response 201:
 
 ```json
 {"id":42,"status":"submitted","late":false}
 ```
 
-- `GET /api/reports?date_from=&date_to=&object_id=&responsible_user_id=&limit=&offset=` — список полных отчётов.
-- `GET /api/reports/{id}` — полный отчёт с equipment и works.
+Response 409 — отчёт за эту дату по этому объекту уже сдан этим ответственным:
+
+```json
+{"detail":{"error":"Отчёт за эту дату по этому объекту уже сдан"}}
+```
+
+- `GET /api/reports?date_from=&date_to=&object_id=&responsible_user_id=&limit=&offset=` — список полных отчётов (responsible видит только свои; фильтр `responsible_user_id` доступен manager/admin).
+- `GET /api/reports/{id}` — полный отчёт с equipment и works; responsible получает 403 на чужой отчёт.
 - Изменение/удаление отчёта не входит в MVP.
 
 ## Статус сдачи
@@ -169,7 +189,7 @@ Response 201:
 
 ## Scheduler / worker
 
-Внутренние HTTP-эндпоинты, вызываемые контейнером scheduler или cron/healthcheck.
+Внутренние HTTP-эндпоинты, вызываемые контейнером scheduler или cron/healthcheck. Требуют заголовок `X-Internal-Token` (= `INTERNAL_TOKEN`); при пустом `INTERNAL_TOKEN` доступны только в dev. Каждый job держит PostgreSQL advisory lock на выделенном соединении на всё время выполнения.
 
 - `POST /api/scheduler/morning?target_date=YYYY-MM-DD` — создать obligations на день (advisory lock).
 - `POST /api/scheduler/evening-reminder?group_id=1&reminder_number=1` — вечернее напоминание (advisory lock).

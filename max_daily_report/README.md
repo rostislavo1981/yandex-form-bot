@@ -13,11 +13,17 @@ make lint          # ruff
 make api           # uvicorn --reload on :8000
 ```
 
-Fill `.env` with `MAX_BOT_TOKEN`, `MAX_WEBHOOK_SECRET`, `MAX_GROUP_ID` before
-using real MAX features. Dev mode (`DEBUG=true APP_ENV=dev`) bypasses MAX
-auth and auto-creates a placeholder user. In dev mode the frontend also uses
-a `dev` initData fallback so you can test the Mini App in a browser at
-`http://127.0.0.1:8080/` without launching it from MAX.
+Fill `.env` with `MAX_BOT_TOKEN`, `MAX_BOT_USERNAME`, `MAX_WEBHOOK_SECRET`,
+`MAX_GROUP_ID` before using real MAX features. Dev mode is gated **strictly
+on `APP_ENV=dev`** (setting `DEBUG=true` alone does NOT bypass auth): it
+auto-creates a placeholder user and accepts the `dev` initData fallback so
+you can test the Mini App in a browser at `http://127.0.0.1:8080/` without
+launching it from MAX.
+
+In production every `/api/*` endpoint requires a valid `X-Init-Data` header
+(validated against `MAX_BOT_TOKEN`); `/api/scheduler/*` and
+`/api/worker/*` are internal and require `X-Internal-Token` equal to
+`INTERNAL_TOKEN` from `.env`.
 
 The dev placeholder user is `dev-user` (role `responsible` until you run
 `python -m app.seed`, which creates `dev-user` with the `admin` role). In dev
@@ -41,10 +47,15 @@ open.
 
 2. Required production variables:
 
-   - `DOMAIN` — public domain pointed at the server (Caddy obtains HTTPS cert).
+   - `DOMAIN` — public domain pointed at the server; Caddy obtains a
+     Let's Encrypt certificate automatically (HTTPS is mandatory for the MAX
+     Mini App). Leave `:80` for plain-HTTP local smoke testing.
    - `DATABASE_URL` — `postgresql+asyncpg://mdr_user:mdr_pass@db:5432/mdr_db`
    - `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`
-   - `MAX_BOT_TOKEN`, `MAX_WEBHOOK_SECRET`, `MAX_GROUP_ID`
+   - `MAX_BOT_TOKEN`, `MAX_BOT_USERNAME`, `MAX_WEBHOOK_SECRET`, `MAX_GROUP_ID`
+   - `WEBAPP_PUBLIC_URL` — fallback Mini App link when the bot username is unset.
+   - `INTERNAL_TOKEN` — shared secret for `/api/scheduler/*` and
+     `/api/worker/*` (required in production; empty allows dev-only access).
    - `BACKUP_DIR` — local directory for `pg_dump` (mounted into the DB container).
    - `SCHEDULER_TIMEZONE` — defaults to `Europe/Moscow`.
 
