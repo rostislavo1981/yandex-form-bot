@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from unittest.mock import AsyncMock, patch
 
@@ -144,3 +145,79 @@ async def test_temporary_failure_retries(async_session):
     await async_session.refresh(event)
     assert event.status == "pending"
     assert event.attempts == 1
+    assert event.last_error == "MAX timeout"
+    assert event.available_at > datetime.now(UTC)
+
+
+@pytest.mark.asyncio
+async def test_exponential_backoff(async_session):
+    worker = NotificationWorker(async_session)
+    user, obj, group, report = await _seed(async_session)
+    event = OutboxEvent(
+        event_key=f"report_submitted:{report.id}",
+        kind="report_submitted",
+        payload_json=json.dumps({"report_id": report.id}),
+        status="pending",
+        attempts=2,
+    )
+    async_session.add(event)
+    await async_session.commit()
+
+    with patch("app.services.notification_worker.MAXClient") as MockClient:
+        instance = MockClient.return_value
+        instance.send_message = AsyncMock(side_effect=RuntimeError("timeout"))
+        instance.close = AsyncMock()
+        result = await worker.process_pending()
+
+    assert result["failed"] == 1
+    await async_session.refresh(event)
+    assert event.attempts == 3
+    expected_backoff = 30 * (2 ** 2)
+    assert event.available_at >= datetime.now(UTC) + timedelta(seconds=expected_backoff - 1)
+
+
+@pytest.mark.asyncio
+async def test_max_attempts_marks_failed(async_session):
+    worker = NotificationWorker(async_session)
+    user, obj, group, report = await _seed(async_session)
+    event = OutboxEvent(
+        event_key=f"report_submitted:{report.id}",
+        kind="report_submitted",
+        payload_json=json.dumps({"report_id": report.id}),
+        status="pending",
+        attempts=4,
+    )
+    async_session.add(event)
+    await async_session.commit()
+
+    with patch("app.services.notification_worker.MAXClient") as MockClient:
+        instance = MockClient.return_value
+        instance.send_message = AsyncMock(side_effect=RuntimeError("permanent"))
+        instance.close = AsyncMock()
+        result = await worker.process_pending()
+
+    assert result["failed"] == 1
+    await async_session.refresh(event)
+    assert event.status == "failed"
+    assert event.attempts == 5
+
+
+@pytest.mark.asyncio
+async def test_claim_sets_processing_status(async_session):
+    worker = NotificationWorker(async_session)
+    user, obj, group, report = await _seed(async_session)
+    event = OutboxEvent(
+        event_key=f"report_submitted:{report.id}",
+        kind="report_submitted",
+        payload_json=json.dumps({"report_id": report.id}),
+        status="pending",
+    )
+    async_session.add(event)
+    await async_session.commit()
+
+    events = await worker._claim_events(limit=10)
+    assert len(events) == 1
+    assert events[0].id == event.id
+
+    await async_session.refresh(event)
+    assert event.status == "processing"

@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -15,6 +15,9 @@ from app.models.users import MAXGroup, User
 from app.services.control_panel_service import ControlPanelService
 from app.services.max_client import MAXClient
 
+MAX_ATTEMPTS = 5
+BASE_BACKOFF_SECONDS = 30
+
 
 class NotificationWorker:
     """Process pending outbox events and publish report cards to MAX."""
@@ -23,14 +26,7 @@ class NotificationWorker:
         self._session = session
 
     async def process_pending(self, limit: int = 50) -> dict[str, int]:
-        result = await self._session.execute(
-            select(OutboxEvent)
-            .where(OutboxEvent.status == "pending")
-            .where(OutboxEvent.available_at <= datetime.now(UTC))
-            .order_by(OutboxEvent.created_at)
-            .limit(limit)
-        )
-        events = result.scalars().all()
+        events = await self._claim_events(limit)
         processed = {"success": 0, "failed": 0, "skipped": 0}
         for event in events:
             try:
@@ -40,14 +36,41 @@ class NotificationWorker:
             except Exception as exc:  # noqa: BLE001
                 event.attempts += 1
                 event.last_error = str(exc)[:1000]
-                if event.attempts >= 5:
+                if event.attempts >= MAX_ATTEMPTS:
                     event.status = "failed"
                 else:
-                    event.available_at = datetime.now(UTC)
+                    backoff = BASE_BACKOFF_SECONDS * (2 ** (event.attempts - 1))
+                    event.available_at = datetime.now(UTC) + timedelta(seconds=backoff)
+                    event.status = "pending"
                 processed["failed"] += 1
             await self._session.flush()
         await self._session.commit()
         return processed
+
+    async def _claim_events(self, limit: int) -> list[OutboxEvent]:
+        now = datetime.now(UTC)
+        subq = (
+            select(OutboxEvent.id)
+            .where(OutboxEvent.status == "pending")
+            .where(OutboxEvent.available_at <= now)
+            .order_by(OutboxEvent.created_at)
+            .limit(limit)
+            .with_for_update(skip_locked=True)
+            .subquery()
+        )
+        result = await self._session.execute(
+            update(OutboxEvent)
+            .where(OutboxEvent.id.in_(select(subq.c.id)))
+            .values(status="processing")
+            .returning(OutboxEvent.id)
+        )
+        claimed_ids = [row[0] for row in result.fetchall()]
+        if not claimed_ids:
+            return []
+        result = await self._session.execute(
+            select(OutboxEvent).where(OutboxEvent.id.in_(claimed_ids))
+        )
+        return list(result.scalars().all())
 
     async def _process_event(self, event: OutboxEvent) -> None:
         if event.kind == "report_submitted":
