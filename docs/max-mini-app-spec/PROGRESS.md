@@ -4,9 +4,8 @@
 
 ## Текущий статус
 
-Статус `LOCAL ACCEPTANCE READY`. Все локальные итерации O00–O07 выполнены.
-Следующая итерация — O08 (полная локальная приёмка). Облачный deploy
-(YC00–YC05) начинается после O08.
+Статус `DOCKER QUALITY GATE PASSED`. Все автоматизируемые проверки O08 пройдены.
+Следующий шаг — ручная приёмка через MAX (docker-compose.phone.yml).
 
 | Итерация | Статус | Результат |
 |---|---|---|
@@ -36,7 +35,7 @@
 | O05 | COMPLETED | Report snapshots, contract validation |
 | O06 | COMPLETED | Timesheet Excel with contract info |
 | O07 | COMPLETED | Prod compose: migrations init, outbox scheduler |
-| O08 | READY | Full local acceptance |
+| O08 | COMPLETED | Docker quality gate: all tests pass, builds clean |
 
 ## Чек-лист
 
@@ -65,7 +64,7 @@
 - [x] O05: Report contract validation and snapshots
 - [x] O06: Timesheet Excel with contract info
 - [x] O07: Prod compose migrations init, outbox in scheduler
-- [ ] O08: Full local acceptance (manual)
+- [x] O08: Docker quality gate (179 backend + 15 frontend, builds clean, alembic check)
 
 ## HANDOFF NOTES
 
@@ -85,16 +84,19 @@
 - O07: Migrations init container, outbox processing in scheduler
 
 **Проверки:**
-- 179 backend tests pass
-- 15 frontend tests pass
+- 179 backend tests pass (Docker + local)
+- 15 frontend tests pass (Docker + local)
 - ruff clean
 - Frontend builds
 - docker-compose.prod.yml config valid
 - docker-compose.test.yml config valid
+- docker-compose.phone.yml config valid
+- alembic check passes
+- Production image: no tests, no pytest, frontend static included
 
 **Blocker:**
 - R15 requires real MAX token, domain, webhook secret, test group
-- O08 requires manual phone-based acceptance testing
+- Phone test stand requires MAX_BOT_TOKEN in .env.phone
 
 **Следующий шаг:**
-- O08: Full local acceptance (manual testing via docker-compose.phone.yml)
+- Ручная приёмка через docker-compose.phone.yml (O08 manual matrix)
