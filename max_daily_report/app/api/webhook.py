@@ -137,6 +137,49 @@ async def _handle_group_status(session: AsyncSession, chat_id: str) -> None:
     await _send(chat_id, text)
 
 
+async def _handle_group_missing(session: AsyncSession, chat_id: str) -> None:
+    from datetime import date
+
+    from app.models.reports import ResponsibleObjectAssignment
+
+    today = date.today()
+    result = await session.execute(
+        select(User.full_name, Object.name)
+        .join(ResponsibleObjectAssignment, ResponsibleObjectAssignment.user_id == User.id)
+        .join(Object, ResponsibleObjectAssignment.object_id == Object.id)
+        .outerjoin(
+            ReportObligation,
+            (ReportObligation.user_id == User.id)
+            & (ReportObligation.object_id == Object.id)
+            & (ReportObligation.report_date == today),
+        )
+        .where(ReportObligation.id.is_(None))
+        .where(ResponsibleObjectAssignment.active.is_(True))
+        .where(ResponsibleObjectAssignment.active_from <= today)
+        .where(ResponsibleObjectAssignment.active_to >= today)
+    )
+    rows = result.all()
+    if not rows:
+        text = "✅ Все ответственные сдали отчёты за сегодня!"
+    else:
+        lines = [f"• {name} — {obj}" for name, obj in rows]
+        text = "👥 Не сдали отчёт за сегодня:\n" + "\n".join(lines)
+    await _send(chat_id, text)
+
+
+async def _handle_help(chat_id: str) -> None:
+    text = (
+        "ℹ️ Помощь\n"
+        "\n"
+        "📝 Заполнить отчёт — откроет Mini App для заполнения\n"
+        "📊 Статус — покажет кто сдал сегодня\n"
+        "📅 Табель — сводка по работам за период\n"
+        "📥 Excel — скачайте табель в Excel\n"
+        "👥 Кто не сдал — список ответственных без отчёта"
+    )
+    await _send(chat_id, text)
+
+
 @router.post("/max")
 async def max_webhook(
     request: Request,
@@ -184,12 +227,30 @@ async def max_webhook(
             await _handle_group_status(session, chat_id)
             return {"status": "ok"}
 
-        if callback_data.startswith(("timesheet", "timesheet_excel")):
+        if callback_data.startswith("group_missing"):
+            await _handle_group_missing(session, chat_id)
+            return {"status": "ok"}
+
+        if callback_data == "help":
+            await _handle_help(chat_id)
+            return {"status": "ok"}
+
+        if callback_data.startswith(("timesheet", "timesheet_excel", "group_timesheet", "group_excel", "my_timesheet", "my_excel")):
             url = _mini_app_url()
             text = (
                 f"Табель доступен в Mini App: {url}"
                 if url
                 else "Табель доступен в Mini App — откройте бота."
+            )
+            await _send(chat_id, text)
+            return {"status": "ok"}
+
+        if callback_data == "my_objects":
+            url = _mini_app_url()
+            text = (
+                f"Ваши объекты доступны в Mini App: {url}"
+                if url
+                else "Объекты доступны в Mini App — откройте бота."
             )
             await _send(chat_id, text)
             return {"status": "ok"}

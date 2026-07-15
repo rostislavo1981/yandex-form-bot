@@ -190,3 +190,67 @@ def test_webhook_unknown_event(client: TestClient, monkeypatch):
     )
     assert response.status_code == 200
     assert response.json()["status"] == "ignored"
+
+
+def test_webhook_help(client: TestClient, monkeypatch):
+    monkeypatch.setattr(settings, "max_webhook_secret", "secret")
+    event = {
+        "update_type": "message_callback",
+        "callback": {"payload": "help", "callback_id": "cb-help"},
+        "user": {"user_id": "max-42", "name": "Test User"},
+        "chat_id": "chat-1",
+    }
+    with patch("app.api.webhook.MAXClient") as MockClient:
+        instance = MockClient.return_value
+        instance.send_message = AsyncMock()
+        instance.close = AsyncMock()
+        response = client.post(
+            "/api/webhook/max",
+            json=event,
+            headers={"x-max-bot-api-secret": "secret"},
+        )
+    assert response.status_code == 200
+    assert response.json()["status"] == "ok"
+    text = instance.send_message.await_args.kwargs["text"]
+    assert "Помощь" in text
+
+
+def test_webhook_group_missing(client: TestClient, monkeypatch, db_session):
+    monkeypatch.setattr(settings, "max_webhook_secret", "secret")
+    from datetime import date
+
+    from app.models.catalogs import Object, ObjectStage, Stage
+    from app.models.reports import ResponsibleObjectAssignment
+    from app.models.users import User
+
+    user = User(max_user_id="max-miss", full_name="Missing User", role="responsible")
+    obj = Object(code="obj-miss", name="Missing Obj", execution_method="own")
+    stage = Stage(code="st-miss", name="Stage")
+    db_session.add_all([user, obj, stage])
+    db_session.flush()
+    db_session.add(ObjectStage(object_id=obj.id, stage_id=stage.id))
+    db_session.add(ResponsibleObjectAssignment(
+        user_id=user.id, object_id=obj.id,
+        active_from=date(2026, 1, 1), active_to=date(2026, 12, 31),
+        schedule_type="daily",
+    ))
+    db_session.commit()
+
+    event = {
+        "update_type": "message_callback",
+        "callback": {"payload": "group_missing:1", "callback_id": "cb-miss"},
+        "user": {"user_id": "max-42", "name": "Admin"},
+        "chat_id": "chat-1",
+    }
+    with patch("app.api.webhook.MAXClient") as MockClient:
+        instance = MockClient.return_value
+        instance.send_message = AsyncMock()
+        instance.close = AsyncMock()
+        response = client.post(
+            "/api/webhook/max",
+            json=event,
+            headers={"x-max-bot-api-secret": "secret"},
+        )
+    assert response.status_code == 200
+    text = instance.send_message.await_args.kwargs["text"]
+    assert "Missing User" in text

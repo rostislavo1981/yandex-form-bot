@@ -137,19 +137,22 @@ class ControlPanelService:
         text = (
             "📋 Пульт управления отчётами\n"
             "\n"
-            "Используйте кнопки для быстрого доступа:\n"
-            "• Статус — кто сегодня сдал\n"
-            "• Табель — сводка по работам\n"
-            "• Excel — выгрузка табеля\n"
+            "Используйте кнопки для быстрого доступа:"
         )
         keyboard = [
             [
-                {"text": "📊 Статус", "callback_data": f"group_status:{group_id}"},
-                {"text": "📈 Табель", "callback_data": f"group_timesheet:{group_id}"},
+                {"text": "📝 Заполнить отчёт", "callback_data": "open_report"},
             ],
             [
-                {"text": "📁 Excel", "callback_data": f"group_excel:{group_id}"},
-                {"text": "🔁 Обновить", "callback_data": f"group_refresh:{group_id}"},
+                {"text": "📊 Статус сегодня", "callback_data": f"group_status:{group_id}"},
+                {"text": "📅 Табель", "callback_data": f"group_timesheet:{group_id}"},
+            ],
+            [
+                {"text": "📥 Excel", "callback_data": f"group_excel:{group_id}"},
+                {"text": "👥 Кто не сдал", "callback_data": f"group_missing:{group_id}"},
+            ],
+            [
+                {"text": "ℹ️ Помощь", "callback_data": "help"},
             ],
         ]
         return text, keyboard
@@ -162,12 +165,18 @@ class ControlPanelService:
         )
         keyboard = [
             [
-                {"text": "📝 Отправить отчёт", "callback_data": "open_report"},
-                {"text": "📊 Мой статус", "callback_data": "my_status"},
+                {"text": "📝 Заполнить отчёт", "callback_data": "open_report"},
             ],
             [
-                {"text": "📈 Мои отчёты", "callback_data": "my_reports"},
-                {"text": "🔄 Обновить", "callback_data": "private_refresh"},
+                {"text": "📋 Мои отчёты", "callback_data": "my_reports"},
+                {"text": "📅 Мой табель", "callback_data": "my_timesheet"},
+            ],
+            [
+                {"text": "🏗 Мои объекты", "callback_data": "my_objects"},
+                {"text": "📥 Excel", "callback_data": "my_excel"},
+            ],
+            [
+                {"text": "↩️ Рабочая группа", "callback_data": "open_report"},
             ],
         ]
         return text, keyboard
