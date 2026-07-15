@@ -87,6 +87,15 @@ class TimesheetService:
         expected_days = {o.report_date for o in obligations}
         missing_days = expected_days - submitted_days
 
+        day_status = {}
+        for d in days:
+            if d not in expected_days:
+                day_status[d] = "not_expected"
+            elif d in submitted_days:
+                day_status[d] = "submitted"
+            else:
+                day_status[d] = "missed"
+
         rows = []
         if personnel_row.values:
             rows.append(self._render_row(personnel_row, days, expected_days))
@@ -104,6 +113,7 @@ class TimesheetService:
             "date_from": date_from.isoformat(),
             "date_to": date_to.isoformat(),
             "days": [d.isoformat() for d in days],
+            "day_status": {d.isoformat(): s for d, s in day_status.items()},
             "rows": rows,
             "missing_days": sorted(d.isoformat() for d in missing_days),
         }

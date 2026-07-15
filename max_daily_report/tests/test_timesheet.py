@@ -228,3 +228,19 @@ def test_timesheet_does_not_mix_objects(client: TestClient, db_session):
     work_rows = [r for r in data["rows"] if r["category"] == "work"]
     assert work_rows[0]["total"] == "130.5"
     assert "15" not in work_rows[0]["values"]
+
+
+def test_timesheet_day_status(client: TestClient, db_session):
+    obj_a, obj_b, user, manager = _seed_timesheet(db_session)
+    dev_user = db_session.execute(select(User).where(User.max_user_id == "dev-user")).scalar_one()
+    dev_user.max_user_id = "other-dev"
+    manager.max_user_id = "dev-user"
+    db_session.commit()
+
+    response = client.get(
+        f"/api/timesheet/{obj_a.id}?date_from=2026-07-14&date_to=2026-07-15"
+    )
+    data = response.json()
+    day_status = data["day_status"]
+    assert day_status["2026-07-14"] == "submitted"
+    assert day_status["2026-07-15"] == "submitted"
