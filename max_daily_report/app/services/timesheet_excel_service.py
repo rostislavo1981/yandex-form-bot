@@ -12,6 +12,7 @@ from app.services.timesheet_service import TimesheetService
 
 _FILL_HEADER = PatternFill(start_color="E5E7EB", end_color="E5E7EB", fill_type="solid")
 _FILL_MISSING = PatternFill(start_color="FFF3E0", end_color="FFF3E0", fill_type="solid")
+_FILL_NOT_EXPECTED = PatternFill(start_color="F5F5F5", end_color="F5F5F5", fill_type="solid")
 _FILL_TOTAL = PatternFill(start_color="F3F4F6", end_color="F3F4F6", fill_type="solid")
 
 
@@ -61,7 +62,6 @@ class TimesheetExcelBuilder:
     ) -> BytesIO:
         data = await self._service.build(object_id, date_from, date_to)
         wb = Workbook()
-        # remove default sheet
         wb.remove(wb.active)
 
         self._add_summary_sheet(wb, data)
@@ -89,8 +89,9 @@ class TimesheetExcelBuilder:
         ws = wb.create_sheet("Статус отправки")
         columns = ["Дата", "Статус"]
         _write_header(ws, columns)
+        day_status = data.get("day_status", {})
         for day in data["days"]:
-            status = "пропущен" if day in data["missing_days"] else "сдан"
+            status = day_status.get(day, "пропущен")
             ws.append([day, status])
         _autosize_columns(ws)
         _freeze_header_and_first_columns(ws, 0)
@@ -110,12 +111,17 @@ class TimesheetExcelBuilder:
                 row["average"],
                 row["max"],
             ])
-        # mark missing day columns
+        day_status = data.get("day_status", {})
         for col_idx, day in enumerate(data["days"], start=4):
-            if day in data["missing_days"]:
-                for row_idx in range(2, ws.max_row + 1):
-                    ws.cell(row=row_idx, column=col_idx).fill = _FILL_MISSING
-        # style totals
+            status = day_status.get(day, "")
+            if status == "missed":
+                fill = _FILL_MISSING
+            elif status == "not_expected":
+                fill = _FILL_NOT_EXPECTED
+            else:
+                continue
+            for row_idx in range(2, ws.max_row + 1):
+                ws.cell(row=row_idx, column=col_idx).fill = fill
         total_col = len(header) - 2
         for row_idx in range(2, ws.max_row + 1):
             ws.cell(row=row_idx, column=total_col).fill = _FILL_TOTAL
@@ -125,5 +131,7 @@ class TimesheetExcelBuilder:
 
     def _add_raw_reports_sheet(self, wb: Workbook, data: dict[str, Any]) -> None:
         ws = wb.create_sheet("Исходные отчёты")
-        ws.append(["Лист 'Исходные отчёты' заполняется в I21+ при необходимости."])
+        columns = ["Дата", "Ответственный", "Объект", "Этап", "Категория", "Показатель", "Ед.", "Кол-во"]
+        _write_header(ws, columns)
         _autosize_columns(ws)
+        _freeze_header_and_first_columns(ws, 0)
