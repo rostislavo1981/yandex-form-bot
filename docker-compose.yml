@@ -1,33 +1,9 @@
 services:
-  bot:
-    build:
-      context: .
-      args:
-        # Set to 1 to include Chromium (~300MB) for filling real Yandex Forms
-        INSTALL_PLAYWRIGHT: ${INSTALL_PLAYWRIGHT:-0}
-    image: yandex-form-bot:latest
-    container_name: yfb-bot
-    restart: unless-stopped
-    env_file:
-      - .env
-    environment:
-      # Bot runs the polling loop; if you also want the API for debugging,
-      # add a second service `api` (see README).
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
-      STRICT_CONFIG: "1"   # prod: require all secrets
-      TZ: Europe/Moscow
-    volumes:
-      - bot-data:/app/data
-    command: ["bot"]
-    healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/healthz", "||", "exit", "0"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-
   # Reminder service: runs yfb-reminder in a loop, sleeping until 20:00 each day.
   # No system cron needed — the container itself is the scheduler.
   # Set REMINDER_HOUR / REMINDER_MINUTE in .env to override 20:00.
+  # STRICT_CONFIG=0: this service only needs MAX_BOT_TOKEN + FORM_PUBLISHED_URL.
+  # YandexGPT / Yandex Disk are required only for the optional `bot` service below.
   reminder:
     build:
       context: .
@@ -40,19 +16,41 @@ services:
       - .env
     environment:
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      STRICT_CONFIG: "0"
+      TZ: Europe/Moscow
+    volumes:
+      - bot-data:/app/data
+    command: ["scheduler"]
+
+  # Optional main bot: needs YANDEX_GPT_* and YANDEX_DISK_OAUTH_TOKEN to parse reports.
+  # Enable with: docker compose --profile full up -d
+  # Disabled by default — only the reminder service runs.
+  bot:
+    profiles: ["full"]  # start with: docker compose --profile full up
+    build:
+      context: .
+      args:
+        INSTALL_PLAYWRIGHT: ${INSTALL_PLAYWRIGHT:-0}
+    image: yandex-form-bot:latest
+    container_name: yfb-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
       STRICT_CONFIG: "1"
       TZ: Europe/Moscow
     volumes:
       - bot-data:/app/data
-    command: ["python", "-m", "backend.cli.scheduler"]
+    command: ["bot"]
     depends_on:
-      - bot
+      - reminder
 
   api:  # optional: enable for /healthz, debugging
+    profiles: ["api", "full"]
     build: .
     image: yandex-form-bot:latest
     container_name: yfb-api
-    profiles: ["api"]  # start with: docker compose --profile api up
     command: ["api"]
     env_file:
       - .env

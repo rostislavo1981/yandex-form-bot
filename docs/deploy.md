@@ -1,5 +1,8 @@
 # Deploy
 
+> Деплой V1. Новый MVP разворачивается по итерации I21 из [`max-mini-app-spec/08_implementation_plan.md`](max-mini-app-spec/08_implementation_plan.md).
+> После деплоя менеджер/админ открывает `https://${DOMAIN}/admin/catalogs` для управления справочниками и импорта/экспорта Excel.
+
 ## Вариант 1: Docker (рекомендуется)
 
 ### Локально (Mac)

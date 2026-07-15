@@ -1,5 +1,7 @@
 # Roadmap
 
+> Исторический roadmap V1. Единственный актуальный backlog нового MVP: [`max-mini-app-spec/08_implementation_plan.md`](max-mini-app-spec/08_implementation_plan.md).
+
 ## v0.1.0 (current — MVP+1) ✅
 - [x] YandexGPT-парсер (12 полей формы)
 - [x] Playwright-заполнение Яндекс.Формы
@@ -21,7 +23,7 @@
 - [ ] **Production secrets** (Vault / K8s secrets)
 
 ### Средний
-- [ ] **Inline-редактирование** в Mini App (PATCH /api/submissions/{id})
+- [x] **Inline-редактирование** справочников в Mini App (`/admin/catalogs`) — done in I22
 - [ ] **Дашборд**: графики работ/людей/грунта по дням (Chart.js)
 - [ ] **Уведомления** прорабам в 20:00 (cron → MAX)
 - [ ] **Фильтр по объекту** (сейчас только foreman)

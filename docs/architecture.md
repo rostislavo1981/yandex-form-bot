@@ -1,5 +1,8 @@
 # Architecture
 
+> Архивная архитектура V1. Архитектура нового MVP: [`max-mini-app-spec/02_architecture.md`](max-mini-app-spec/02_architecture.md).
+> Новое в MVP: web-админка `/admin/catalogs` и эндпоинты `/api/admin/catalogs/*` для CRUD справочников, Excel import/export.
+
 ## Поток данных (end-to-end)
 
 ### 1. Отчёт прораба

@@ -67,15 +67,17 @@ def test_build_summary_two_reports(tmp_path: Path) -> None:
     ws = wb.active
     # 1 header + 2 data = 3 rows
     assert ws.max_row == 3
-    assert ws.cell(row=2, column=1).value == "2026-07-10"
-    assert ws.cell(row=2, column=2).value == "РП-7"
-    assert ws.cell(row=2, column=3).value == "Степанов"
-    assert ws.cell(row=2, column=7).value == 1  # itr
-    assert ws.cell(row=2, column=8).value == 4  # opr_staff
-    assert ws.cell(row=2, column=10).value == 5  # total
-    assert ws.cell(row=2, column=11).value == 15  # waste
-    assert ws.cell(row=3, column=2).value == "ТП-345"
-    assert ws.cell(row=3, column=15).value == "⏳"  # not confirmed
+    assert ws.cell(row=1, column=1).value == "Тип"
+    assert ws.cell(row=2, column=1).value == "Прораб"
+    assert ws.cell(row=2, column=2).value == "2026-07-10"
+    assert ws.cell(row=2, column=3).value == "РП-7"
+    assert ws.cell(row=2, column=4).value == "Степанов"
+    assert ws.cell(row=2, column=8).value == 1  # itr
+    assert ws.cell(row=2, column=9).value == 4  # opr_staff
+    assert ws.cell(row=2, column=11).value == 5  # total
+    assert ws.cell(row=2, column=12).value == 15  # waste
+    assert ws.cell(row=3, column=3).value == "ТП-345"
+    assert ws.cell(row=3, column=16).value == "⏳"  # not confirmed
 
 
 def test_build_summary_personnel_total(tmp_path: Path) -> None:
@@ -88,7 +90,7 @@ def test_build_summary_personnel_total(tmp_path: Path) -> None:
     out = build_summary([(r, True)], tmp_path / "summary.xlsx")
     wb = load_workbook(out)
     ws = wb.active
-    assert ws.cell(row=2, column=10).value == 10  # total
+    assert ws.cell(row=2, column=11).value == 10  # total (shifted +1 for "Тип" col)
 
 
 def test_build_summary_volume_rendered_without_dot_zero(tmp_path: Path) -> None:
@@ -96,16 +98,33 @@ def test_build_summary_volume_rendered_without_dot_zero(tmp_path: Path) -> None:
     out = build_summary([(r, True)], tmp_path / "summary.xlsx")
     wb = load_workbook(out)
     ws = wb.active
-    # Waste volume col 11 should be 15 (integer, since Report stores it as float)
-    assert ws.cell(row=2, column=11).value == 15
+    # Waste volume col 12 should be 15 (integer, since Report stores it as float)
+    assert ws.cell(row=2, column=12).value == 15
 
 
 def test_build_summary_header_styled(tmp_path: Path) -> None:
     out = build_summary([(_make_report(), True)], tmp_path / "summary.xlsx")
     wb = load_workbook(out)
     ws = wb.active
-    assert ws.cell(row=1, column=1).value == "Дата"
+    assert ws.cell(row=1, column=2).value == "Дата"  # shifted right by "Тип"
     assert ws.cell(row=1, column=1).font.bold is True
+
+
+def test_build_summary_contractor_has_no_personnel(tmp_path: Path) -> None:
+    """Contractor reports: type=contractor, personnel=None, columns show «—»."""
+    r = _make_report(foreman="Иванов (подряд)", object_name="Синергия")
+    r_obj = r[0] if isinstance(r, tuple) else r
+    r_obj.type = "contractor"
+    r_obj.personnel = None
+    out = build_summary([(r_obj, True)], tmp_path / "summary.xlsx")
+    wb = load_workbook(out)
+    ws = wb.active
+    assert ws.cell(row=2, column=1).value == "Подрядчик"
+    assert ws.cell(row=2, column=8).value == "—"  # itr
+    assert ws.cell(row=2, column=9).value == "—"  # opr_staff
+    assert ws.cell(row=2, column=10).value == "—"  # opr_external
+    assert ws.cell(row=2, column=11).value == "—"  # total
+    assert ws.cell(row=2, column=12).value == 15  # waste still rendered
 
 
 def test_build_summary_empty_input(tmp_path: Path) -> None:
