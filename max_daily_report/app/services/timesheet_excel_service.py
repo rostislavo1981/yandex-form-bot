@@ -131,7 +131,31 @@ class TimesheetExcelBuilder:
 
     def _add_raw_reports_sheet(self, wb: Workbook, data: dict[str, Any]) -> None:
         ws = wb.create_sheet("Исходные отчёты")
-        columns = ["Дата", "Ответственный", "Объект", "Этап", "Категория", "Показатель", "Ед.", "Кол-во"]
+        columns = [
+            "Дата",
+            "Ответственный",
+            "Объект",
+            "Этап",
+            "Категория",
+            "Показатель",
+            "Ед.",
+            "Кол-во",
+            "Договор код",
+            "Договор название",
+        ]
         _write_header(ws, columns)
+        for row in data.get("raw_reports", []):
+            ws.append([
+                row["date"],
+                row["user"],
+                row["object_code"],
+                row.get("stage", ""),
+                row["category"],
+                row["item"],
+                row["unit"],
+                row["quantity"],
+                row.get("contract_code", ""),
+                row.get("contract_full_name", ""),
+            ])
         _autosize_columns(ws)
         _freeze_header_and_first_columns(ws, 0)

@@ -95,6 +95,15 @@ async def run_morning_summary() -> None:
             logger.exception("Morning summary failed for group %s", group_id)
 
 
+async def run_outbox() -> None:
+    logger.info("Processing outbox")
+    try:
+        result = await _api_post("/api/worker/process-outbox", params={"limit": 50})
+        logger.info("Outbox result: %s", result)
+    except Exception:  # noqa: BLE001
+        logger.exception("Outbox processing failed")
+
+
 def build_scheduler() -> AsyncIOScheduler:
     """APScheduler исполняет coroutine-функции сам — без create_task-обёртки,
     иначе задача держится только слабой ссылкой и может быть удалена GC."""
@@ -129,6 +138,14 @@ def build_scheduler() -> AsyncIOScheduler:
         run_morning_summary,
         CronTrigger(hour=8, minute=0),
         id="morning_summary",
+        replace_existing=True,
+    )
+
+    # outbox processing — every minute
+    scheduler.add_job(
+        run_outbox,
+        CronTrigger(minute="*"),
+        id="outbox_process",
         replace_existing=True,
     )
 

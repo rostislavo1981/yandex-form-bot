@@ -3,9 +3,10 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.database import engine
 from app.models.catalogs import (
     Contractor,
@@ -121,10 +122,18 @@ async def seed_async(session: AsyncSession) -> None:
         )
         users.append(user)
 
+    group_chat_id = settings.max_group_id.strip() or SEED_GROUP["chat_id"]
     group = await repo.get_or_create_group(
-        chat_id=SEED_GROUP["chat_id"],
+        chat_id=group_chat_id,
         title=SEED_GROUP["title"],
     )
+    if settings.max_group_id:
+        await session.execute(
+            update(MAXGroup)
+            .where(MAXGroup.chat_id == SEED_GROUP["chat_id"])
+            .where(MAXGroup.chat_id != group_chat_id)
+            .values(active=False)
+        )
 
     for user in users:
         result = await session.execute(
@@ -413,7 +422,15 @@ def seed_sync(session: object) -> None:
         get_or_create_user(u["max_user_id"], u["full_name"], u["role"])
         for u in SEED_USERS
     ]
-    group = get_or_create_group(SEED_GROUP["chat_id"], SEED_GROUP["title"])
+    group_chat_id = settings.max_group_id.strip() or SEED_GROUP["chat_id"]
+    group = get_or_create_group(group_chat_id, SEED_GROUP["title"])
+    if settings.max_group_id:
+        session.execute(
+            update(MAXGroup)
+            .where(MAXGroup.chat_id == SEED_GROUP["chat_id"])
+            .where(MAXGroup.chat_id != group_chat_id)
+            .values(active=False)
+        )
     for user in users:
         member = session.execute(
             sync_select(GroupMember).where(

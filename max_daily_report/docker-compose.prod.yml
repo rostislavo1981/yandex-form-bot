@@ -19,12 +19,16 @@ services:
       - mdr
 
   api:
-    build: .
+    build:
+      context: .
+      target: base
     container_name: mdr-api
     restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
+      migrations:
+        condition: service_completed_successfully
     env_file:
       - .env
     environment:
@@ -40,8 +44,26 @@ services:
       start_period: 10s
       retries: 3
 
+  migrations:
+    build:
+      context: .
+      target: base
+    container_name: mdr-migrations
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://mdr_user:mdr_pass@db:5432/mdr_db}
+    command: ["sh", "-c", "alembic upgrade head"]
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - mdr
+
   scheduler:
-    build: .
+    build:
+      context: .
+      target: base
     container_name: mdr-scheduler
     restart: unless-stopped
     depends_on:

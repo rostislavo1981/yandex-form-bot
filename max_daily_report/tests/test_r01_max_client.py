@@ -15,6 +15,9 @@ def _mock_client(handler):
 
 
 class TestExtractMessageId:
+    def test_extracts_official_nested_message_id(self):
+        assert _extract_message_id({"message": {"body": {"mid": "official-123"}}}) == "official-123"
+
     def test_extracts_message_id(self):
         assert _extract_message_id({"message_id": "123"}) == "123"
 
@@ -62,7 +65,7 @@ async def test_send_message_uses_query_params():
         captured["params"] = dict(req.url.params)
         body = req.content.decode()
         captured["body"] = body
-        return httpx.Response(200, json={"message_id": "999"})
+        return httpx.Response(200, json={"message": {"body": {"mid": "999"}}})
 
     client = _mock_client(handler)
     try:
@@ -91,7 +94,7 @@ async def test_edit_message_uses_query_params():
     finally:
         await client.close()
 
-    assert "chat_id=42" in captured["url"]
+    assert "chat_id" not in captured["url"]
     assert "message_id=100" in captured["url"]
     assert "Updated" in captured["body"]
     assert "chatId" not in captured["body"]
@@ -114,8 +117,9 @@ async def test_pin_message_uses_query_params():
         await client.close()
 
     assert "chats/42/pin" in captured["url"]
-    assert "message_id=100" in captured["url"]
-    assert captured["body"] == "{}" or "msgId" not in captured["body"]
+    assert "message_id" not in captured["url"]
+    body = json.loads(captured["body"])
+    assert body == {"message_id": "100", "notify": True}
 
 
 @pytest.mark.asyncio
@@ -134,10 +138,9 @@ async def test_answer_callback():
         await client.close()
 
     assert "/answers" in captured["url"]
+    assert "callback_id=cb123" in captured["url"]
     body = json.loads(captured["body"])
-    assert body["callback_id"] == "cb123"
-    assert body["text"] == "Done"
-    assert body["show_alert"] is True
+    assert body == {"notification": "Done"}
 
 
 @pytest.mark.asyncio
@@ -162,3 +165,25 @@ async def test_send_message_keyboard_format():
     assert body["attachments"][0]["type"] == "inline_keyboard"
     assert body["attachments"][0]["payload"]["buttons"][0][0]["type"] == "callback"
     assert body["attachments"][0]["payload"]["buttons"][0][0]["payload"] == "act"
+
+
+@pytest.mark.asyncio
+async def test_subscribe_webhook_includes_group_lifecycle_events():
+    captured: dict = {}
+
+    async def handler(req: httpx.Request) -> httpx.Response:
+        captured["body"] = json.loads(req.content.decode())
+        return httpx.Response(200, json={"success": True})
+
+    client = _mock_client(handler)
+    try:
+        await client.subscribe_webhook("https://example.com/hook", "secret-value")
+    finally:
+        await client.close()
+
+    assert set(captured["body"]["update_types"]) == {
+        "bot_added",
+        "bot_removed",
+        "bot_started",
+        "message_callback",
+    }

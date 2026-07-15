@@ -73,6 +73,7 @@ def _seed_excel_data(db_session):
         responsible_user_id=user.id,
         object_id=obj_a.id,
         stage_id=stage.id,
+        object_name_snapshot="Объект A",
         staff_itr=1,
         staff_internal=2,
         staff_external=1,

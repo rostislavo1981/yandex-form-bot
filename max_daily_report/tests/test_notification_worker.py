@@ -33,6 +33,7 @@ async def _seed(session) -> tuple[User, Object, MAXGroup, DailyReport]:
         responsible_user_id=user.id,
         object_id=obj.id,
         stage_id=stage.id,
+        object_name_snapshot="Объект 1",
         staff_itr=1,
         staff_internal=2,
         staff_external=3,

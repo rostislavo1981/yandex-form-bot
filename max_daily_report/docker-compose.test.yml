@@ -1,0 +1,46 @@
+name: mdr-test
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: mdr-test-db
+    environment:
+      POSTGRES_USER: mdr_user
+      POSTGRES_PASSWORD: mdr_pass
+      POSTGRES_DB: mdr_test
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mdr_user -d mdr_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - mdr_test_data:/var/lib/postgresql/data
+    networks:
+      - mdr-test
+
+  backend-tests:
+    build:
+      context: .
+      target: backend-test
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      TEST_DATABASE_URL: postgresql+psycopg2://mdr_user:mdr_pass@db:5432/mdr_test
+      DATABASE_URL: postgresql+asyncpg://mdr_user:mdr_pass@db:5432/mdr_test
+      APP_ENV: dev
+    networks:
+      - mdr-test
+
+  frontend-tests:
+    build:
+      context: .
+      target: frontend-test
+    networks:
+      - mdr-test
+
+volumes:
+  mdr_test_data:
+
+networks:
+  mdr-test:

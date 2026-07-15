@@ -173,9 +173,11 @@ class NotificationWorker:
         lines = [
             f"✅ Отчёт #{report.id}",
             f"Дата: {report.report_date}",
-            f"Объект: {obj.name if obj else '—'}",
+            f"Объект: {report.object_name_snapshot}",
             f"Ответственный: {user.full_name if user else '—'}",
         ]
+        if report.contract_full_name_snapshot:
+            lines.append(f"Договор: {report.contract_full_name_snapshot}")
         # суммируем только внутри одной единицы измерения (правило спеки)
         work_totals = self._totals_by_unit(
             (w.unit_name_snapshot, w.quantity) for w in report.works

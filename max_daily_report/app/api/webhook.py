@@ -10,7 +10,8 @@ from app.config import settings
 from app.database import get_db as get_async_session
 from app.models.catalogs import Object
 from app.models.reports import DailyReport, ReportObligation
-from app.models.users import User
+from app.models.users import GroupMember, MAXGroup, User
+from app.services.control_panel_service import ControlPanelService
 from app.services.max_client import MAXClient
 
 router = APIRouter(prefix="/api/webhook", tags=["webhook"])
@@ -44,6 +45,66 @@ async def _get_or_create_user(
     return user
 
 
+async def _activate_group(
+    session: AsyncSession,
+    chat_id: str,
+    user_info: tuple[str, str] | None,
+) -> MAXGroup:
+    client = MAXClient()
+    try:
+        chat = await client.get_chat(chat_id)
+    finally:
+        await client.close()
+
+    result = await session.execute(
+        select(MAXGroup).where(MAXGroup.chat_id == chat_id)
+    )
+    group = result.scalar_one_or_none()
+    title = str(chat.get("title") or f"Группа MAX {chat_id}")
+    if group is None:
+        group = MAXGroup(chat_id=chat_id, title=title, active=True)
+        session.add(group)
+    else:
+        group.title = title
+        group.active = True
+
+    placeholder_result = await session.execute(
+        select(MAXGroup).where(MAXGroup.chat_id == "max-group-1")
+    )
+    placeholder = placeholder_result.scalar_one_or_none()
+    if placeholder is not None and placeholder.chat_id != chat_id:
+        placeholder.active = False
+
+    if user_info:
+        user = await _get_or_create_user(session, user_info[0], user_info[1])
+        await session.flush()
+        member_result = await session.execute(
+            select(GroupMember).where(
+                GroupMember.group_id == group.id,
+                GroupMember.user_id == user.id,
+            )
+        )
+        member = member_result.scalar_one_or_none()
+        if member is None:
+            session.add(GroupMember(group_id=group.id, user_id=user.id, active=True))
+        else:
+            member.active = True
+
+    await session.commit()
+    await session.refresh(group)
+    return group
+
+
+async def _deactivate_group(session: AsyncSession, chat_id: str) -> None:
+    result = await session.execute(
+        select(MAXGroup).where(MAXGroup.chat_id == chat_id)
+    )
+    group = result.scalar_one_or_none()
+    if group is not None:
+        group.active = False
+        await session.commit()
+
+
 def _extract_user(event: dict[str, Any]) -> tuple[str, str] | None:
     user = event.get("user")
     if not user or not isinstance(user, dict):
@@ -70,7 +131,7 @@ def _extract_chat_id(event: dict[str, Any]) -> str | None:
 def _build_start_keyboard() -> list[list[dict[str, Any]]]:
     return [
         [
-            {"text": "Открыть форму отчёта", "callback_data": "open_report"},
+            {"type": "open_app", "text": "Открыть форму отчёта"},
             {"text": "Мои отчёты", "callback_data": "my_reports"},
         ]
     ]
@@ -80,6 +141,16 @@ async def _send(chat_id: str, text: str, keyboard: list | None = None) -> None:
     client = MAXClient()
     try:
         await client.send_message(chat_id=chat_id, text=text, inline_keyboard=keyboard)
+    finally:
+        await client.close()
+
+
+async def _ack_callback(callback_id: str | None) -> None:
+    if not callback_id:
+        return
+    client = MAXClient()
+    try:
+        await client.answer_callback(callback_id=callback_id)
     finally:
         await client.close()
 
@@ -192,6 +263,20 @@ async def max_webhook(
     event = await request.json()
     update_type = event.get("update_type")
 
+    if update_type == "bot_added":
+        chat_id = _extract_chat_id(event)
+        if not chat_id:
+            return {"status": "ignored"}
+        group = await _activate_group(session, chat_id, _extract_user(event))
+        await ControlPanelService(session).ensure_group_control_panel(group.id)
+        return {"status": "ok"}
+
+    if update_type == "bot_removed":
+        chat_id = _extract_chat_id(event)
+        if chat_id:
+            await _deactivate_group(session, chat_id)
+        return {"status": "ok"}
+
     if update_type == "bot_started":
         user_info = _extract_user(event)
         chat_id = _extract_chat_id(event)
@@ -208,11 +293,21 @@ async def max_webhook(
     if update_type == "message_callback":
         callback = event.get("callback", {})
         callback_data = callback.get("payload", "")
+        callback_id = callback.get("callback_id")
         chat_id = _extract_chat_id(event)
         user_info = _extract_user(event)
         if user_info:
             await _get_or_create_user(session, user_info[0], user_info[1])
         if not chat_id:
+            return {"status": "ignored"}
+
+        await _ack_callback(str(callback_id) if callback_id else None)
+
+        if (
+            callback_data.startswith("group_")
+            and settings.max_group_id
+            and chat_id != settings.max_group_id
+        ):
             return {"status": "ignored"}
 
         if callback_data == "open_report":

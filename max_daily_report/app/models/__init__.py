@@ -12,6 +12,7 @@ from app.models.catalogs import (
     WorkType,
     WorkTypeMethod,
 )
+from app.models.contracts import Contract, ObjectContract
 from app.models.operations import CatalogImport
 from app.models.reports import (
     DailyReport,
@@ -26,6 +27,8 @@ from app.models.users import GroupMember, MAXGroup, User
 
 __all__ = [
     "Base",
+    "Contract",
+    "ObjectContract",
     "CatalogImport",
     "User",
     "MAXGroup",

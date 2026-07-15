@@ -5,7 +5,7 @@ import { PersonnelField } from '../components/PersonnelField.tsx'
 import { WorkRows } from '../components/WorkRows.tsx'
 import { searchObjects, searchStages } from '../api/catalogs.ts'
 import { submitReport } from '../api/reports.ts'
-import type { CatalogItem } from '../types/catalogs'
+import type { CatalogItem, ContractRef, ObjectItem } from '../types/catalogs'
 import type {
   EquipmentRow,
   ReportFormData,
@@ -33,7 +33,8 @@ function cleanRows(rows: EquipmentRow[] | WorkRow[]): unknown[] {
 }
 
 export function ReportPage() {
-  const [object, setObject] = useState<CatalogItem | null>(null)
+  const [object, setObject] = useState<ObjectItem | null>(null)
+  const [contract, setContract] = useState<ContractRef | null>(null)
   const [stage, setStage] = useState<CatalogItem | null>(null)
   const [reportDate, setReportDate] = useState(() => {
     const today = new Date()
@@ -48,9 +49,14 @@ export function ReportPage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<{ id: number; late: boolean } | null>(null)
 
-  const handleObjectChange = useCallback((item: CatalogItem | null) => {
+  const handleObjectChange = useCallback((item: ObjectItem | null) => {
     setObject(item)
     setStage(null)
+    if (item && item.contracts.length === 1) {
+      setContract(item.contracts[0])
+    } else {
+      setContract(null)
+    }
   }, [])
 
   const stageSearch = useMemo(() => {
@@ -73,6 +79,7 @@ export function ReportPage() {
       object_id: object.id,
       stage_id: stage.id,
       contractor_id: null,
+      contract_id: contract?.id ?? null,
       staff,
       soil_export_m3: soilExport ? toNumber(soilExport) : null,
       equipment: cleanRows(equipment) as EquipmentRow[],
@@ -145,6 +152,40 @@ export function ReportPage() {
           searchFn={useCallback((q) => searchObjects(q).then((r) => r.items), [])}
           placeholder="Поиск объекта..."
         />
+
+        {object && (
+          <div className="field">
+            <label className="field-label">Полное название</label>
+            <div className="field-input-readonly">
+              {object.contracts?.[0]?.full_name || object.name}
+            </div>
+          </div>
+        )}
+
+        {object && object.contracts.length > 1 && (
+          <div className="field">
+            <label htmlFor="contract" className="field-label">
+              Договор / официальный объект
+            </label>
+            <select
+              id="contract"
+              className="field-input"
+              value={contract?.id ?? ''}
+              onChange={(e) => {
+                const selected =
+                  object.contracts.find((c) => c.id === Number(e.target.value)) || null
+                setContract(selected)
+              }}
+            >
+              <option value="">Выберите договор</option>
+              {object.contracts.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.code} — {c.full_name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {stageSearch && (
           <SearchSelect
