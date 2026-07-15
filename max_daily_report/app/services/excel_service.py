@@ -21,6 +21,8 @@ from app.models.catalogs import (
     WorkTypeMethod,
 )
 from app.models.operations import CatalogImport
+from app.models.reports import ResponsibleObjectAssignment
+from app.models.users import User
 from app.repos.catalogs import CatalogRepo
 
 SHEET_COLUMNS = {
@@ -226,6 +228,7 @@ class CatalogImportApplier:
             raise ValueError("Импорт содержит ошибки валидации")
 
         await self._load_existing()
+        await self._apply_users(validator)
         await self._apply_contractors(validator)
         await self._apply_units(validator)
         await self._apply_stages(validator)
@@ -235,6 +238,7 @@ class CatalogImportApplier:
         await self._apply_work_types(validator)
         await self._apply_work_methods(validator)
         await self._apply_work_type_methods(validator)
+        await self._apply_assignments(validator)
 
         import_record.status = "applied"
         import_record.applied_at = sa.func.now()
@@ -242,6 +246,10 @@ class CatalogImportApplier:
         return import_record
 
     async def _load_existing(self) -> None:
+        self._users = {
+            u.max_user_id: u
+            for u in (await self._session.execute(select(User))).scalars()
+        }
         self._contractors = {
             c.code: c for c in (await self._session.execute(select(Contractor))).scalars()
         }
@@ -261,6 +269,25 @@ class CatalogImportApplier:
             wt.code: wt
             for wt in (await self._session.execute(select(WorkType))).scalars()
         }
+
+    async def _apply_users(self, validator: CatalogImportValidator) -> None:
+        for row in validator.iter_rows("Users"):
+            code = _normalize_text(row.get("code"))
+            name = _normalize_text(row.get("name"))
+            role = _normalize_text(row.get("role")) or "responsible"
+            active = _normalize_bool(row.get("active"))
+            if not code or not name:
+                continue
+            user = self._users.get(code)
+            if user is None:
+                user = User(max_user_id=code, full_name=name, role=role, active=active)
+                self._session.add(user)
+                await self._session.flush()
+                self._users[code] = user
+            else:
+                user.full_name = name
+                user.role = role
+                user.active = active
 
     async def _apply_contractors(self, validator: CatalogImportValidator) -> None:
         for row in validator.iter_rows("Contractors"):
@@ -389,12 +416,59 @@ class CatalogImportApplier:
                 )
             await self._repo.ensure_work_type_method(work_type.id, method.id)
 
+    async def _apply_assignments(self, validator: CatalogImportValidator) -> None:
+        from datetime import date as date_type
+
+        for row in validator.iter_rows("Assignments"):
+            user_code = _normalize_text(row.get("user_code"))
+            object_code = _normalize_text(row.get("object_code"))
+            active_from = row.get("active_from")
+            active_to = row.get("active_to")
+            schedule_type = _normalize_text(row.get("schedule_type")) or "daily"
+            active = _normalize_bool(row.get("active"))
+            if not user_code or not object_code:
+                continue
+            user = self._users.get(user_code)
+            obj = self._objects.get(object_code)
+            if user is None or obj is None:
+                raise ValueError(
+                    f"Назначение '{user_code}' -> '{object_code}' невозможно: пользователь или объект не найден"
+                )
+            if isinstance(active_from, str):
+                active_from = date_type.fromisoformat(active_from)
+            if isinstance(active_to, str):
+                active_to = date_type.fromisoformat(active_to)
+            result = await self._session.execute(
+                select(ResponsibleObjectAssignment).where(
+                    ResponsibleObjectAssignment.user_id == user.id,
+                    ResponsibleObjectAssignment.object_id == obj.id,
+                )
+            )
+            assignment = result.scalar_one_or_none()
+            if assignment is None:
+                assignment = ResponsibleObjectAssignment(
+                    user_id=user.id,
+                    object_id=obj.id,
+                    active_from=active_from,
+                    active_to=active_to,
+                    schedule_type=schedule_type,
+                    active=active,
+                )
+                self._session.add(assignment)
+            else:
+                assignment.active_from = active_from
+                assignment.active_to = active_to
+                assignment.schedule_type = schedule_type
+                assignment.active = active
+            await self._session.flush()
+
 
 async def export_catalogs(session: AsyncSession) -> BytesIO:
     """Export current catalogs to an .xlsx workbook."""
     wb = Workbook()
     wb.remove(wb.active)
 
+    users = (await session.execute(select(User))).scalars().all()
     contractors = (
         await session.execute(select(Contractor).where(Contractor.active))
     ).scalars().all()
@@ -420,13 +494,25 @@ async def export_catalogs(session: AsyncSession) -> BytesIO:
             select(WorkTypeMethod).where(WorkTypeMethod.active)
         )
     ).scalars().all()
+    assignments = (
+        await session.execute(
+            select(ResponsibleObjectAssignment).where(ResponsibleObjectAssignment.active)
+        )
+    ).scalars().all()
 
     code_to_contractor = {c.id: c for c in contractors}
     code_to_unit = {u.id: u for u in units}
     code_to_stage = {s.id: s for s in stages}
     code_to_object = {o.id: o for o in objects}
+    code_to_work_type = {wt.id: wt for wt in work_types}
+    code_to_method = {m.id: m for m in methods}
+    code_to_user = {u.id: u for u in users}
 
     sheets_data = {
+        "Users": [
+            [u.max_user_id, u.full_name, u.role, int(u.active), ""]
+            for u in users
+        ],
         "Contractors": [
             [c.code, c.name, int(c.active), c.sort_order or ""]
             for c in contractors
@@ -484,15 +570,27 @@ async def export_catalogs(session: AsyncSession) -> BytesIO:
         ],
         "WorkTypeMethods": [
             [
-                code_to_object.get(wtm.work_type_id, WorkType(code="")).code,
-                code_to_object.get(wtm.work_method_id, WorkMethod(code="")).code,
+                code_to_work_type.get(wtm.work_type_id, WorkType(code="")).code,
+                code_to_method.get(wtm.work_method_id, WorkMethod(code="")).code,
                 int(wtm.active),
             ]
             for wtm in work_type_methods
         ],
+        "Assignments": [
+            [
+                code_to_user.get(a.user_id, User(max_user_id="")).max_user_id,
+                code_to_object.get(a.object_id, Object(code="")).code,
+                a.active_from.isoformat() if a.active_from else "",
+                a.active_to.isoformat() if a.active_to else "",
+                a.schedule_type,
+                int(a.active),
+            ]
+            for a in assignments
+        ],
     }
 
-    for sheet_name, rows in sheets_data.items():
+    for sheet_name in SHEET_ORDER:
+        rows = sheets_data.get(sheet_name, [])
         ws = wb.create_sheet(title=sheet_name)
         ws.append(SHEET_COLUMNS[sheet_name])
         for row in rows:
