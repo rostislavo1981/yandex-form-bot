@@ -14,6 +14,7 @@ from app.models.catalogs import (
     WorkType,
     WorkTypeMethod,
 )
+from app.models.contracts import Contract, ObjectContract
 
 DEFAULT_LIMIT = 20
 MAX_LIMIT = 50
@@ -62,9 +63,49 @@ class CatalogService:
         from app.models.reports import ResponsibleObjectAssignment
 
         q = _normalize_query(q)
-        criteria = _catalog_search_filter(Object, q)
-        stmt = select(Object).where(criteria)
-        count_stmt = select(func.count()).select_from(Object).where(criteria)
+        base_filter = Object.active == True  # noqa: E712
+        if q is None:
+            criteria = base_filter
+        else:
+            pattern = f"%{q}%"
+            criteria = base_filter & (
+                func.lower(Object.name).like(pattern)
+                | func.lower(Object.code).like(pattern)
+                | func.lower(func.coalesce(Object.search_aliases, "")).like(pattern)
+                | func.lower(Contract.code).like(pattern)
+                | func.lower(Contract.full_name).like(pattern)
+            )
+
+        stmt = (
+            select(Object)
+            .outerjoin(
+                ObjectContract,
+                (ObjectContract.object_id == Object.id)
+                & (ObjectContract.active == True),  # noqa: E712
+            )
+            .outerjoin(
+                Contract,
+                (ObjectContract.contract_id == Contract.id)
+                & (Contract.active == True),  # noqa: E712
+            )
+            .where(criteria)
+        )
+        count_stmt = (
+            select(func.count(func.distinct(Object.id)))
+            .select_from(Object)
+            .outerjoin(
+                ObjectContract,
+                (ObjectContract.object_id == Object.id)
+                & (ObjectContract.active == True),  # noqa: E712
+            )
+            .outerjoin(
+                Contract,
+                (ObjectContract.contract_id == Contract.id)
+                & (Contract.active == True),  # noqa: E712
+            )
+            .where(criteria)
+        )
+
         if restrict_user_id is not None:
             assignment_join = ResponsibleObjectAssignment.object_id == Object.id
             assignment_filter = (
@@ -73,18 +114,42 @@ class CatalogService:
             stmt = stmt.join(
                 ResponsibleObjectAssignment, assignment_join
             ).where(assignment_filter)
-            count_stmt = (
-                select(func.count(func.distinct(Object.id)))
-                .select_from(Object)
-                .join(ResponsibleObjectAssignment, assignment_join)
-                .where(criteria & assignment_filter)
-            )
-            stmt = stmt.distinct()
-        stmt = stmt.order_by(Object.sort_order, Object.name)
+            count_stmt = count_stmt.join(
+                ResponsibleObjectAssignment, assignment_join
+            ).where(assignment_filter)
+
+        stmt = stmt.order_by(Object.sort_order, Object.name).distinct()
         total_result = await self._session.execute(count_stmt)
         total = total_result.scalar() or 0
         result = await self._session.execute(_paginate(stmt, limit, offset))
-        return list(result.scalars().all()), total
+        objects = list(result.scalars().all())
+
+        if objects:
+            object_ids = [obj.id for obj in objects]
+            oc_stmt = (
+                select(ObjectContract, Contract)
+                .join(Contract, ObjectContract.contract_id == Contract.id)
+                .where(
+                    ObjectContract.object_id.in_(object_ids),
+                    ObjectContract.active == True,  # noqa: E712
+                    Contract.active == True,  # noqa: E712
+                )
+                .order_by(ObjectContract.object_id)
+            )
+            oc_result = await self._session.execute(oc_stmt)
+            oc_map: dict[int, list[object]] = {}
+            for oc, contract in oc_result.all():
+                ref = type("ContractRef", (), {
+                    "id": contract.id,
+                    "code": contract.code,
+                    "full_name": contract.full_name,
+                    "primary": oc.is_primary,
+                })()
+                oc_map.setdefault(oc.object_id, []).append(ref)
+            for obj in objects:
+                obj.contracts = oc_map.get(obj.id, [])
+
+        return objects, total
 
     async def search_stages_for_object(
         self,

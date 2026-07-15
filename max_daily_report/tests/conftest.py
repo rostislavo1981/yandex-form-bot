@@ -65,9 +65,10 @@ def clear_tables():
     _assert_not_production_db()
     truncate_sql = text(
         "TRUNCATE TABLE outbox_events, report_works, report_equipment, daily_reports, "
-        "report_obligations, responsible_object_assignments, work_type_methods, "
-        "object_stages, work_types, objects, group_members, equipment_types, "
-        "work_methods, users, units, stages, max_groups, contractors, catalog_imports "
+        "report_obligations, responsible_object_assignments, object_contracts, "
+        "work_type_methods, object_stages, work_types, objects, group_members, "
+        "equipment_types, work_methods, users, units, stages, max_groups, contractors, "
+        "contracts, catalog_imports "
         "RESTART IDENTITY CASCADE"
     )
     with test_engine.begin() as conn:

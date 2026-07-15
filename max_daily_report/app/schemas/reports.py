@@ -49,6 +49,7 @@ class ReportCreateRequest(BaseModel):
     contractor_id: int | None = None
     # Подмена ответственного: заполняется только manager/admin (спека UX)
     responsible_user_id: int | None = None
+    contract_id: int | None = None
     staff: StaffInput = Field(default_factory=StaffInput)
     soil_export_m3: Decimal | None = Field(default=None, ge=0)
     equipment: list[EquipmentInput] = Field(default_factory=list)
@@ -111,6 +112,10 @@ class ReportDetailResponse(BaseModel):
     object_id: int
     stage_id: int
     contractor_id: int | None
+    contract_id: int | None = None
+    object_name_snapshot: str
+    contract_code_snapshot: str | None = None
+    contract_full_name_snapshot: str | None = None
     staff_itr: int
     staff_internal: int
     staff_external: int

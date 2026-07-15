@@ -1,0 +1,102 @@
+name: mdr-phone
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: mdr-phone-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mdr_phone
+      POSTGRES_PASSWORD: mdr_phone_pass
+      POSTGRES_DB: mdr_phone
+    ports:
+      - "127.0.0.1:15433:5432"
+    volumes:
+      - mdr_phone_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mdr_phone -d mdr_phone"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      target: base
+    container_name: mdr-phone-api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env.phone
+    environment:
+      DATABASE_URL: postgresql+asyncpg://mdr_phone:mdr_phone_pass@db:5432/mdr_phone
+      APP_ENV: production
+      DEBUG: "false"
+    ports:
+      - "127.0.0.1:18000:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8000/api/health || exit 1"]
+      interval: 5s
+      timeout: 3s
+      start_period: 10s
+      retries: 10
+
+  worker:
+    build:
+      context: .
+      target: base
+    container_name: mdr-phone-worker
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    env_file:
+      - .env.phone
+    environment:
+      DATABASE_URL: postgresql+asyncpg://mdr_phone:mdr_phone_pass@db:5432/mdr_phone
+      APP_ENV: production
+    command:
+      - sh
+      - -c
+      - >-
+        while true; do curl -fsS -X POST
+        'http://api:8000/api/worker/process-outbox?limit=25'
+        -H "X-Internal-Token: $${INTERNAL_TOKEN}" >/dev/null || true;
+        sleep 2; done
+    healthcheck:
+      disable: true
+
+  scheduler:
+    build:
+      context: .
+      target: base
+    container_name: mdr-phone-scheduler
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    env_file:
+      - .env.phone
+    environment:
+      DATABASE_URL: postgresql+asyncpg://mdr_phone:mdr_phone_pass@db:5432/mdr_phone
+      APP_ENV: production
+      SCHEDULER_API_URL: http://api:8000
+    command: ["python", "-m", "app.scheduler_runner"]
+    healthcheck:
+      disable: true
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: mdr-phone-tunnel
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    command:
+      ["tunnel", "--no-autoupdate", "--protocol", "http2", "--url", "http://api:8000"]
+
+volumes:
+  mdr_phone_postgres_data:
+    name: mdr-phone-postgres-data

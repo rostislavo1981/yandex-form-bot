@@ -28,3 +28,26 @@ class CatalogListResponse(BaseModel):
 class UnitListResponse(BaseModel):
     items: list[CatalogItemWithSymbol]
     total: int
+
+
+class ContractRef(BaseModel):
+    id: int
+    code: str
+    full_name: str
+    primary: bool
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ObjectItem(BaseModel):
+    id: int
+    code: str
+    name: str
+    contracts: list[ContractRef] = []
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ObjectListResponse(BaseModel):
+    items: list[ObjectItem]
+    total: int

@@ -26,6 +26,41 @@ In production every `/api/*` endpoint requires a valid `X-Init-Data` header
 `/api/worker/*` are internal and require `X-Internal-Token` equal to
 `INTERNAL_TOKEN` from `.env`.
 
+## Test from a phone through MAX
+
+This stand is isolated from the regular local database and exposes the Mini App
+through a temporary HTTPS Cloudflare Quick Tunnel.
+
+```bash
+cp .env.phone.example .env.phone
+# put MAX_BOT_TOKEN into .env.phone; never paste it into a chat or commit it
+docker compose -f docker-compose.phone.yml up -d --build
+docker compose -f docker-compose.phone.yml run --rm api alembic upgrade head
+docker compose -f docker-compose.phone.yml run --rm api python -m app.seed
+```
+
+Read the generated `https://...trycloudflare.com` address from the tunnel logs,
+put it into `WEBAPP_PUBLIC_URL` in `.env.phone`, and set the same address as the
+Mini App URL in the MAX partner cabinet. Then activate the bot integration:
+
+```bash
+docker compose -f docker-compose.phone.yml logs tunnel
+./scripts/activate_phone_test.sh
+```
+
+Add the bot to the test group as an administrator. If `MAX_GROUP_ID` is set,
+rerun `python -m app.seed`; the seed then creates/activates that real group and
+disables the placeholder group. The quick-tunnel address remains valid only
+while `mdr-phone-tunnel` is running. Stop the stand without deleting its data:
+
+```bash
+docker compose -f docker-compose.phone.yml down
+```
+
+The Docker image installs the current Russian Trusted Root/Sub CA certificates
+published through the Госуслуги certificate page. MAX API currently uses this
+chain; TLS verification remains enabled.
+
 The dev placeholder user is `dev-user` (role `responsible` until you run
 `python -m app.seed`, which creates `dev-user` with the `admin` role). In dev
 mode open `/admin/catalogs` to manage catalogs.

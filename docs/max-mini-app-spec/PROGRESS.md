@@ -4,8 +4,9 @@
 
 ## Текущий статус
 
-Статус `REMEDIATION COMPLETE`. Все итерации R00–R14 выполнены.
-R15 (production acceptance) заблокирован без реального MAX токена/домена.
+Статус `LOCAL ACCEPTANCE READY`. Все локальные итерации O00–O07 выполнены.
+Следующая итерация — O08 (полная локальная приёмка). Облачный deploy
+(YC00–YC05) начинается после O08.
 
 | Итерация | Статус | Результат |
 |---|---|---|
@@ -26,7 +27,16 @@ R15 (production acceptance) заблокирован без реального M
 | R13 | COMPLETED | CI with backend/frontend/docker jobs |
 | R14 | COMPLETED | Input validation hardening |
 | R15 | BLOCKED | Requires real MAX token/domain |
-| R16 | IN_PROGRESS | Documentation update |
+| R16 | COMPLETED | Object mapping, Docker DoD and Yandex Cloud plan |
+| O00 | COMPLETED | Docker quality gate (test stages, docker-compose.test.yml) |
+| O01 | COMPLETED | Contract model, ObjectContract, report snapshots |
+| O02 | COMPLETED | ObjectMappings Excel import/export |
+| O03 | COMPLETED | Object search by contract code/full_name |
+| O04 | COMPLETED | Frontend contract selection in report form |
+| O05 | COMPLETED | Report snapshots, contract validation |
+| O06 | COMPLETED | Timesheet Excel with contract info |
+| O07 | COMPLETED | Prod compose: migrations init, outbox scheduler |
+| O08 | READY | Full local acceptance |
 
 ## Чек-лист
 
@@ -46,40 +56,45 @@ R15 (production acceptance) заблокирован без реального M
 - [x] R13: GitHub Actions CI
 - [x] R14: Comment max_length
 - [ ] R15: Production acceptance (BLOCKED)
-- [ ] R16: Final docs sync
+- [x] R16: Object mapping, Docker and Yandex Cloud plan
+- [x] O00: Docker test stages, docker-compose.test.yml
+- [x] O01: Contract model, ObjectContract, DailyReport snapshots
+- [x] O02: ObjectMappings sheet in catalog Excel import/export
+- [x] O03: Object search by contract code and full_name
+- [x] O04: Frontend contract selection (auto/single/multiple)
+- [x] O05: Report contract validation and snapshots
+- [x] O06: Timesheet Excel with contract info
+- [x] O07: Prod compose migrations init, outbox in scheduler
+- [ ] O08: Full local acceptance (manual)
 
 ## HANDOFF NOTES
 
-### 2026-07-15 — REMEDIATION R00–R14 complete
+### 2026-07-15 — O00–O07 complete
 
 **Агент:** MiMoCode
 **Ветка:** codex/i00-skeleton
-**Коммиты:** 1cc8248 (R00), fc1c5cf (R01+R02), bf55919 (R03), 2461c4f (R04), 032c25b (R05), 8550b5b (R06), 0793fe8 (R07), de9813f (R08), ae4cc97 (R09), a1b2861 (R10), e45a06a (R11), 7f832e8 (R12), 199b38a (R13), bf2208c (R14)
 
 **Сделано:**
-- R00: Test DB isolation with guard
-- R01+R02: MAX client and webhook aligned with official API
-- R03: Production HTTPS/443, preflight validation
-- R04: Exponential backoff, FOR UPDATE SKIP LOCKED
-- R05: All MAX control buttons working
-- R06: Dynamic units validated
-- R07: Contractor search endpoint
-- R08: One report per obligation
-- R09: ReportsPage and StatusPage
-- R10: Per-day status in timesheet
-- R11: Full catalog Excel round-trip
-- R12: Timesheet Excel styling
-- R13: GitHub Actions CI
-- R14: Input validation hardening
+- O00: Docker test stages (backend-test, frontend-test), docker-compose.test.yml
+- O01: Contract/ObjectContract models, DailyReport snapshots, migration
+- O02: ObjectMappings sheet in Excel import/export with validation
+- O03: Object search by contract code/full_name, ObjectItem schema
+- O04: Frontend contract selection (auto/single/multiple)
+- O05: Report contract validation, foreign/inactive rejection
+- O06: Timesheet Excel with contract info
+- O07: Migrations init container, outbox processing in scheduler
 
 **Проверки:**
-- 151 backend tests pass
-- 10 frontend tests pass
+- 179 backend tests pass
+- 15 frontend tests pass
 - ruff clean
 - Frontend builds
+- docker-compose.prod.yml config valid
+- docker-compose.test.yml config valid
 
 **Blocker:**
 - R15 requires real MAX token, domain, webhook secret, test group
+- O08 requires manual phone-based acceptance testing
 
 **Следующий шаг:**
-- R15: Production acceptance with real MAX credentials
+- O08: Full local acceptance (manual testing via docker-compose.phone.yml)

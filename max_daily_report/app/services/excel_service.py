@@ -20,10 +20,13 @@ from app.models.catalogs import (
     WorkType,
     WorkTypeMethod,
 )
+from app.models.contracts import Contract, ObjectContract
 from app.models.operations import CatalogImport
 from app.models.reports import ResponsibleObjectAssignment
 from app.models.users import User
 from app.repos.catalogs import CatalogRepo
+
+_EMPTY_CONTRACT_MARKERS = ("", "??", "нет пока договора")
 
 SHEET_COLUMNS = {
     "Users": ["code", "name", "role", "active", "sort_order"],
@@ -51,6 +54,14 @@ SHEET_COLUMNS = {
         "schedule_type",
         "active",
     ],
+    "ObjectMappings": [
+        "object_code",
+        "short_name",
+        "contract_code",
+        "full_name",
+        "primary",
+        "active",
+    ],
 }
 
 SHEET_ORDER = [
@@ -65,6 +76,7 @@ SHEET_ORDER = [
     "WorkMethods",
     "WorkTypeMethods",
     "Assignments",
+    "ObjectMappings",
 ]
 
 
@@ -121,9 +133,15 @@ class CatalogImportValidator:
     def __init__(self, workbook_bytes: bytes) -> None:
         self._wb = load_workbook(filename=BytesIO(workbook_bytes), data_only=True)
         self._errors: list[dict] = []
+        self._warnings: list[dict] = []
         self._preview: dict = {}
+        self._seen_object_mapping_pairs: dict[tuple[str, str], int] = {}
 
     def validate(self) -> dict:
+        self._errors = []
+        self._warnings = []
+        self._preview = {}
+        self._seen_object_mapping_pairs = {}
         for sheet_name in SHEET_ORDER:
             ws = self._wb[sheet_name] if sheet_name in self._wb.sheetnames else None
             if ws is None:
@@ -131,7 +149,12 @@ class CatalogImportValidator:
             rows = _read_sheet_rows(ws)
             self._preview[sheet_name] = {"create": 0, "update": 0, "deactivate": 0}
             self._validate_sheet(sheet_name, rows)
-        return {"valid": not self._errors, "errors": self._errors, "preview": self._preview}
+        return {
+            "valid": not self._errors,
+            "errors": self._errors,
+            "warnings": self._warnings,
+            "preview": self._preview,
+        }
 
     @property
     def preview(self) -> dict:
@@ -149,6 +172,11 @@ class CatalogImportValidator:
 
     def _add_error(self, sheet: str, row: int, message: str) -> None:
         self._errors.append({"sheet": sheet, "row": row, "message": message})
+
+    def _add_warning(self, sheet: str, row: int, message: str) -> None:
+        self._warnings.append(
+            {"sheet": sheet, "row": row, "message": message, "level": "warning"}
+        )
 
     def _validate_sheet(self, sheet_name: str, rows: list[dict]) -> None:
         required = {"code"} if "code" in SHEET_COLUMNS[sheet_name] else set()
@@ -192,11 +220,50 @@ class CatalogImportValidator:
                 if role and role not in ("responsible", "manager", "admin"):
                     self._add_error(sheet_name, idx, f"role '{role}' не из responsible|manager|admin")
 
+            if sheet_name == "ObjectMappings":
+                self._validate_object_mappings(idx, row)
+
             active = _normalize_bool(row.get("active"))
             if active:
                 self._preview[sheet_name]["create" if code else "update"] += 1
             else:
                 self._preview[sheet_name]["deactivate"] += 1
+
+    def _validate_object_mappings(self, idx: int, row: dict) -> None:
+        object_code = _normalize_text(row.get("object_code"))
+        short_name = _normalize_text(row.get("short_name"))
+        contract_code = _normalize_text(row.get("contract_code"))
+        full_name = _normalize_text(row.get("full_name"))
+
+        if not object_code:
+            self._add_error("ObjectMappings", idx, "Пустое обязательное поле 'object_code'")
+        if not short_name:
+            self._add_error("ObjectMappings", idx, "Пустое обязательное поле 'short_name'")
+
+        if contract_code in _EMPTY_CONTRACT_MARKERS:
+            self._add_warning(
+                "ObjectMappings",
+                idx,
+                "contract_code указан как отсутствующий — договор не будет создан",
+            )
+        elif contract_code and not full_name:
+            self._add_error(
+                "ObjectMappings",
+                idx,
+                "Пустое обязательное поле 'full_name' при указанном contract_code",
+            )
+
+        if object_code and contract_code and contract_code not in _EMPTY_CONTRACT_MARKERS:
+            pair = (object_code, contract_code)
+            if pair in self._seen_object_mapping_pairs:
+                self._add_error(
+                    "ObjectMappings",
+                    idx,
+                    f"Дублирующаяся пара (object_code, contract_code) "
+                    f"'{object_code}', '{contract_code}' (строка {self._seen_object_mapping_pairs[pair]})",
+                )
+            else:
+                self._seen_object_mapping_pairs[pair] = idx
 
 
 class CatalogImportApplier:
@@ -239,6 +306,7 @@ class CatalogImportApplier:
         await self._apply_work_methods(validator)
         await self._apply_work_type_methods(validator)
         await self._apply_assignments(validator)
+        await self._apply_object_mappings(validator)
 
         import_record.status = "applied"
         import_record.applied_at = sa.func.now()
@@ -268,6 +336,13 @@ class CatalogImportApplier:
         self._work_types = {
             wt.code: wt
             for wt in (await self._session.execute(select(WorkType))).scalars()
+        }
+        self._contracts = {
+            c.code: c for c in (await self._session.execute(select(Contract))).scalars()
+        }
+        self._object_contracts = {
+            (oc.object_id, oc.contract_id): oc
+            for oc in (await self._session.execute(select(ObjectContract))).scalars()
         }
 
     async def _apply_users(self, validator: CatalogImportValidator) -> None:
@@ -462,6 +537,49 @@ class CatalogImportApplier:
                 assignment.active = active
             await self._session.flush()
 
+    async def _apply_object_mappings(self, validator: CatalogImportValidator) -> None:
+        for row in validator.iter_rows("ObjectMappings"):
+            object_code = _normalize_text(row.get("object_code"))
+            if not object_code:
+                continue
+            obj = self._objects.get(object_code)
+            if obj is None:
+                raise ValueError(f"Объект '{object_code}' не найден для ObjectMappings")
+
+            contract_code = _normalize_text(row.get("contract_code"))
+            if contract_code in _EMPTY_CONTRACT_MARKERS:
+                continue
+
+            full_name = _normalize_text(row.get("full_name"))
+            is_primary = _normalize_bool(row.get("primary"))
+            active = _normalize_bool(row.get("active"))
+
+            contract = self._contracts.get(contract_code)
+            if contract is None:
+                contract = Contract(code=contract_code, full_name=full_name or contract_code)
+                self._session.add(contract)
+                await self._session.flush()
+                self._contracts[contract_code] = contract
+            else:
+                if full_name:
+                    contract.full_name = full_name
+                contract.active = True
+
+            existing = self._object_contracts.get((obj.id, contract.id))
+            if existing is None:
+                link = ObjectContract(
+                    object_id=obj.id,
+                    contract_id=contract.id,
+                    is_primary=is_primary,
+                    active=active,
+                )
+                self._session.add(link)
+                await self._session.flush()
+                self._object_contracts[(obj.id, contract.id)] = link
+            else:
+                existing.is_primary = is_primary
+                existing.active = active
+
 
 async def export_catalogs(session: AsyncSession) -> BytesIO:
     """Export current catalogs to an .xlsx workbook."""
@@ -499,6 +617,10 @@ async def export_catalogs(session: AsyncSession) -> BytesIO:
             select(ResponsibleObjectAssignment).where(ResponsibleObjectAssignment.active)
         )
     ).scalars().all()
+    contracts = (await session.execute(select(Contract))).scalars().all()
+    object_contracts = (
+        await session.execute(select(ObjectContract))
+    ).scalars().all()
 
     code_to_contractor = {c.id: c for c in contractors}
     code_to_unit = {u.id: u for u in units}
@@ -507,6 +629,7 @@ async def export_catalogs(session: AsyncSession) -> BytesIO:
     code_to_work_type = {wt.id: wt for wt in work_types}
     code_to_method = {m.id: m for m in methods}
     code_to_user = {u.id: u for u in users}
+    code_to_contract = {c.id: c for c in contracts}
 
     sheets_data = {
         "Users": [
@@ -586,6 +709,17 @@ async def export_catalogs(session: AsyncSession) -> BytesIO:
                 int(a.active),
             ]
             for a in assignments
+        ],
+        "ObjectMappings": [
+            [
+                code_to_object.get(oc.object_id, Object(code="")).code,
+                code_to_object.get(oc.object_id, Object(code="")).name,
+                code_to_contract.get(oc.contract_id, Contract(code="")).code,
+                code_to_contract.get(oc.contract_id, Contract(code="")).full_name,
+                int(oc.is_primary),
+                int(oc.active),
+            ]
+            for oc in object_contracts
         ],
     }
 

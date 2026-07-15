@@ -16,6 +16,7 @@ from app.models.catalogs import (
     WorkType,
     WorkTypeMethod,
 )
+from app.models.contracts import Contract, ObjectContract
 from app.models.reports import (
     DailyReport,
     OutboxEvent,
@@ -56,6 +57,44 @@ class ReportService:
             return existing
 
         responsible = await self._resolve_responsible(user, data)
+
+        obj = await self._get(Object, data.object_id)
+        contract = None
+        if data.contract_id is not None:
+            contract = await self._get(Contract, data.contract_id)
+
+        if data.contract_id is not None:
+            # Подмена чужого/неактивного договора отклоняется.
+            if contract is None or not contract.active:
+                raise ReportValidationError(
+                    "Указанный договор не привязан к объекту или неактивен"
+                )
+            link_result = await self._session.execute(
+                select(ObjectContract).where(
+                    ObjectContract.object_id == data.object_id,
+                    ObjectContract.contract_id == data.contract_id,
+                    ObjectContract.active.is_(True),
+                )
+            )
+            if link_result.scalar_one_or_none() is None:
+                raise ReportValidationError(
+                    "Указанный договор не привязан к объекту или неактивен"
+                )
+        else:
+            # Один договор определяется автоматически: primary, иначе любой active.
+            mapping_result = await self._session.execute(
+                select(ObjectContract).where(
+                    ObjectContract.object_id == data.object_id,
+                    ObjectContract.active.is_(True),
+                )
+            )
+            mappings = list(mapping_result.scalars().all())
+            primary = [m for m in mappings if m.is_primary]
+            candidates = primary if primary else mappings
+            if len(candidates) == 1:
+                data.contract_id = candidates[0].contract_id
+                contract = await self._get(Contract, data.contract_id)
+
         await self._validate(responsible, data)
 
         report = DailyReport(
@@ -64,6 +103,10 @@ class ReportService:
             object_id=data.object_id,
             stage_id=data.stage_id,
             contractor_id=data.contractor_id,
+            contract_id=data.contract_id,
+            object_name_snapshot=obj.name,
+            contract_code_snapshot=contract.code if contract else None,
+            contract_full_name_snapshot=contract.full_name if contract else None,
             comment=data.comment,
             staff_itr=data.staff.itr,
             staff_internal=data.staff.internal,
@@ -239,6 +282,21 @@ class ReportService:
         # contractor object requires contractor
         if obj.execution_method == "contractor" and data.contractor_id is None:
             raise ReportValidationError("contractor_id required for contractor object")
+
+        # contract must be active and linked to the object (O04 preliminary check)
+        if data.contract_id is not None:
+            contract = await self._get(Contract, data.contract_id)
+            if contract is None or not contract.active:
+                raise ReportValidationError("Указанный договор не привязан к объекту")
+            link = await self._session.execute(
+                select(ObjectContract).where(
+                    ObjectContract.object_id == data.object_id,
+                    ObjectContract.contract_id == data.contract_id,
+                    ObjectContract.active.is_(True),
+                )
+            )
+            if link.scalar_one_or_none() is None:
+                raise ReportValidationError("Указанный договор не привязан к объекту")
 
         # user must have active assignment for object on report date
         assignment_result = await self._session.execute(

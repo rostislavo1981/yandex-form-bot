@@ -1,9 +1,13 @@
 import { api } from './client'
-import type { CatalogItemWithSymbol, CatalogListResponse } from '../types/catalogs'
+import type {
+  CatalogItemWithSymbol,
+  CatalogListResponse,
+  ObjectListResponse,
+} from '../types/catalogs'
 
-export async function searchObjects(q: string, limit = 20): Promise<CatalogListResponse> {
+export async function searchObjects(q: string, limit = 20): Promise<ObjectListResponse> {
   const encoded = encodeURIComponent(q)
-  return api.get<CatalogListResponse>(`/api/catalogs/objects?q=${encoded}&limit=${limit}`)
+  return api.get<ObjectListResponse>(`/api/catalogs/objects?q=${encoded}&limit=${limit}`)
 }
 
 export async function searchStages(
