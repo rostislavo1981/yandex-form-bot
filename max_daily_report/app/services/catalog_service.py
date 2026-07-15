@@ -4,6 +4,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.catalogs import (
+    Contractor,
     EquipmentType,
     Object,
     ObjectStage,
@@ -193,6 +194,25 @@ class CatalogService:
         )
         total_result = await self._session.execute(
             select(func.count()).select_from(Unit).where(_catalog_search_filter(Unit, q))
+        )
+        total = total_result.scalar() or 0
+        result = await self._session.execute(_paginate(stmt, limit, offset))
+        return list(result.scalars().all()), total
+
+    async def search_contractors(
+        self,
+        q: str | None,
+        limit: int = DEFAULT_LIMIT,
+        offset: int = 0,
+    ) -> tuple[list[Contractor], int]:
+        q = _normalize_query(q)
+        stmt = (
+            select(Contractor)
+            .where(_catalog_search_filter(Contractor, q))
+            .order_by(Contractor.sort_order, Contractor.name)
+        )
+        total_result = await self._session.execute(
+            select(func.count()).select_from(Contractor).where(_catalog_search_filter(Contractor, q))
         )
         total = total_result.scalar() or 0
         result = await self._session.execute(_paginate(stmt, limit, offset))

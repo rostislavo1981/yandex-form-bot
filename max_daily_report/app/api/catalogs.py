@@ -120,3 +120,17 @@ async def list_units(
     return UnitListResponse(
         items=[CatalogItemWithSymbol.model_validate(item) for item in items], total=total
     )
+
+
+@router.get("/contractors", response_model=CatalogListResponse)
+async def search_contractors(
+    pagination: dict = Depends(_pagination),
+    session: AsyncSession = Depends(get_session),
+) -> CatalogListResponse:
+    service = CatalogService(session)
+    items, total = await service.search_contractors(
+        q=pagination["q"], limit=pagination["limit"], offset=pagination["offset"]
+    )
+    return CatalogListResponse(
+        items=[CatalogItem.model_validate(item) for item in items], total=total
+    )
