@@ -17,7 +17,7 @@ class EquipmentInput(BaseModel):
     ownership: str = Field(pattern=r"^(own|rented|contractor)$")
     unit_id: int
     quantity: Decimal
-    comment: str | None = None
+    comment: str | None = Field(default=None, max_length=500)
 
     @field_validator("quantity")
     @classmethod
@@ -32,7 +32,7 @@ class WorkInput(BaseModel):
     work_method_id: int | None = None
     unit_id: int
     quantity: Decimal
-    comment: str | None = None
+    comment: str | None = Field(default=None, max_length=500)
 
     @field_validator("quantity")
     @classmethod
@@ -53,7 +53,7 @@ class ReportCreateRequest(BaseModel):
     soil_export_m3: Decimal | None = Field(default=None, ge=0)
     equipment: list[EquipmentInput] = Field(default_factory=list)
     works: list[WorkInput] = Field(default_factory=list)
-    comment: str | None = None
+    comment: str | None = Field(default=None, max_length=1000)
 
     @model_validator(mode="after")
     def at_least_one_detail(self) -> ReportCreateRequest:
