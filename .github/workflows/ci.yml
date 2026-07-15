@@ -53,6 +53,9 @@ jobs:
         env:
           TEST_DATABASE_URL: postgresql+psycopg2://mdr_user:mdr_pass@localhost:5432/mdr_test
           DATABASE_URL: postgresql+asyncpg://mdr_user:mdr_pass@localhost:5432/mdr_test
+          # Тесты dev-сценариев требуют dev-режима (в CI нет .env);
+          # prod-поведение тесты включают сами через monkeypatch app_env.
+          APP_ENV: dev
         run: pytest -q
 
       - name: Alembic check
