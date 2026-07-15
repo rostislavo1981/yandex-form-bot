@@ -6,7 +6,6 @@ import httpx
 
 from app.config import settings
 
-BASE_URL = "https://platform-api2.max.ru"
 TIMEOUT = 30.0
 
 
@@ -18,13 +17,8 @@ def _headers() -> dict[str, str]:
 
 
 def _keyboard_attachment(rows: list[list[dict[str, Any]]]) -> dict[str, Any]:
-    """Attachment inline_keyboard по схеме dev.max.ru: payload.buttons,
+    """Attachment inline_keyboard по схеме MAX: payload.buttons,
     кнопка = {type, text, payload}.
-
-    Внутренний формат кнопок ({"text", "callback_data"}) конвертируется здесь,
-    чтобы обработчики и билдеры клавиатур не зависели от wire-формата.
-    [непроверено] точные имена полей сверить с ответом реального API
-    перед продом (см. 05_max_integration.md §5.17).
     """
     buttons = []
     for row in rows:
@@ -44,11 +38,21 @@ def _keyboard_attachment(rows: list[list[dict[str, Any]]]) -> dict[str, Any]:
     return {"type": "inline_keyboard", "payload": {"buttons": buttons}}
 
 
+def _extract_message_id(data: dict[str, Any]) -> str:
+    """Normalize message id from MAX API response."""
+    return str(
+        data.get("message_id")
+        or data.get("msgId")
+        or data.get("messageId")
+        or ""
+    )
+
+
 class MAXClient:
     """Async REST client for MAX Bot API."""
 
-    def __init__(self, base_url: str = BASE_URL, timeout: float = TIMEOUT) -> None:
-        self._base_url = base_url.rstrip("/")
+    def __init__(self, base_url: str | None = None, timeout: float = TIMEOUT) -> None:
+        self._base_url = (base_url or settings.max_api_base_url).rstrip("/")
         self._client = httpx.AsyncClient(timeout=timeout)
 
     async def send_message(
@@ -58,7 +62,7 @@ class MAXClient:
         attachments: list[dict[str, Any]] | None = None,
         inline_keyboard: list[list[dict[str, Any]]] | None = None,
     ) -> dict[str, Any]:
-        payload: dict[str, Any] = {"chatId": chat_id, "text": text}
+        payload: dict[str, Any] = {"text": text}
         if attachments:
             payload["attachments"] = attachments
         if inline_keyboard:
@@ -68,10 +72,13 @@ class MAXClient:
         response = await self._client.post(
             f"{self._base_url}/messages",
             headers=_headers(),
+            params={"chat_id": chat_id},
             json=payload,
         )
         response.raise_for_status()
-        return response.json()
+        data = response.json()
+        data["message_id"] = _extract_message_id(data)
+        return data
 
     async def edit_message(
         self,
@@ -80,12 +87,13 @@ class MAXClient:
         text: str,
         inline_keyboard: list[list[dict[str, Any]]] | None = None,
     ) -> dict[str, Any]:
-        payload: dict[str, Any] = {"chatId": chat_id, "msgId": message_id, "text": text}
+        payload: dict[str, Any] = {"text": text}
         if inline_keyboard:
             payload["attachments"] = [_keyboard_attachment(inline_keyboard)]
         response = await self._client.put(
             f"{self._base_url}/messages",
             headers=_headers(),
+            params={"chat_id": chat_id, "message_id": message_id},
             json=payload,
         )
         response.raise_for_status()
@@ -95,7 +103,27 @@ class MAXClient:
         response = await self._client.put(
             f"{self._base_url}/chats/{chat_id}/pin",
             headers=_headers(),
-            json={"msgId": message_id},
+            params={"message_id": message_id},
+        )
+        response.raise_for_status()
+        return response.json()
+
+    async def answer_callback(
+        self,
+        callback_id: str,
+        text: str | None = None,
+        show_alert: bool = False,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "callback_id": callback_id,
+            "show_alert": show_alert,
+        }
+        if text:
+            payload["text"] = text
+        response = await self._client.post(
+            f"{self._base_url}/answers",
+            headers=_headers(),
+            json=payload,
         )
         response.raise_for_status()
         return response.json()

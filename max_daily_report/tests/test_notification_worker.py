@@ -69,7 +69,7 @@ async def test_process_report_submitted_creates_notification(async_session):
 
     with patch("app.services.notification_worker.MAXClient") as MockClient:
         instance = MockClient.return_value
-        instance.send_message = AsyncMock(return_value={"msgId": "msg-123"})
+        instance.send_message = AsyncMock(return_value={"message_id": "msg-123"})
         instance.close = AsyncMock()
         with patch.object(worker, "_refresh_group_panel", new=AsyncMock()):
             result = await worker.process_pending()

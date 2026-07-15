@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import hashlib
-import hmac
 from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
@@ -18,11 +16,10 @@ from app.services.max_client import MAXClient
 router = APIRouter(prefix="/api/webhook", tags=["webhook"])
 
 
-def _verify_secret(payload: bytes, signature: str, secret: str) -> bool:
-    if not secret or not signature:
+def _verify_secret(x_max_bot_api_secret: str | None, secret: str) -> bool:
+    if not secret:
         return False
-    digest = hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
-    return hmac.compare_digest(digest.lower(), signature.lower())
+    return x_max_bot_api_secret == secret
 
 
 def _mini_app_url() -> str:
@@ -48,23 +45,26 @@ async def _get_or_create_user(
 
 
 def _extract_user(event: dict[str, Any]) -> tuple[str, str] | None:
-    sender = event.get("sender") or event.get("user") or event.get("from")
-    if not sender or not isinstance(sender, dict):
+    user = event.get("user")
+    if not user or not isinstance(user, dict):
         return None
-    user_id = sender.get("userId") or sender.get("id")
-    name = sender.get("name") or sender.get("fullName") or "Пользователь"
+    user_id = user.get("user_id") or user.get("id")
+    name = user.get("name") or user.get("fullName") or "Пользователь"
     if not user_id:
         return None
     return str(user_id), str(name)
 
 
 def _extract_chat_id(event: dict[str, Any]) -> str | None:
+    chat_id = event.get("chat_id")
+    if chat_id is not None:
+        return str(chat_id)
     chat = event.get("chat")
     if isinstance(chat, dict):
-        chat_id = chat.get("chatId") or chat.get("id")
-    else:
-        chat_id = event.get("chatId") or event.get("groupId")
-    return str(chat_id) if chat_id is not None else None
+        chat_id = chat.get("chat_id") or chat.get("id")
+        if chat_id is not None:
+            return str(chat_id)
+    return None
 
 
 def _build_start_keyboard() -> list[list[dict[str, Any]]]:
@@ -140,17 +140,16 @@ async def _handle_group_status(session: AsyncSession, chat_id: str) -> None:
 @router.post("/max")
 async def max_webhook(
     request: Request,
-    x_signature: str | None = Header(default=None, alias="x-signature"),
+    x_max_bot_api_secret: str | None = Header(default=None),
     session: AsyncSession = Depends(get_async_session),
 ) -> dict[str, str]:
-    payload = await request.body()
-    if not _verify_secret(payload, x_signature or "", settings.max_webhook_secret):
-        raise HTTPException(status_code=401, detail="Invalid signature")
+    if not _verify_secret(x_max_bot_api_secret, settings.max_webhook_secret):
+        raise HTTPException(status_code=401, detail="Invalid secret")
 
     event = await request.json()
-    event_type = event.get("type") or event.get("event")
+    update_type = event.get("update_type")
 
-    if event_type == "bot_started":
+    if update_type == "bot_started":
         user_info = _extract_user(event)
         chat_id = _extract_chat_id(event)
         if user_info:
@@ -163,8 +162,9 @@ async def max_webhook(
             )
         return {"status": "ok"}
 
-    if event_type == "callback":
-        callback_data = str(event.get("callbackData") or event.get("payload") or "")
+    if update_type == "message_callback":
+        callback = event.get("callback", {})
+        callback_data = callback.get("payload", "")
         chat_id = _extract_chat_id(event)
         user_info = _extract_user(event)
         if user_info:

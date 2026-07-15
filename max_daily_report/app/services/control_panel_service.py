@@ -43,7 +43,7 @@ class ControlPanelService:
                 text=text,
                 inline_keyboard=keyboard,
             )
-            message_id = str(result.get("msgId") or result.get("messageId") or "")
+            message_id = result.get("message_id", "")
             if message_id:
                 group.control_message_id = message_id
                 await self._session.commit()
@@ -79,7 +79,7 @@ class ControlPanelService:
                 text=text,
                 inline_keyboard=keyboard,
             )
-            message_id = str(result.get("msgId") or result.get("messageId") or "")
+            message_id = result.get("message_id", "")
             if message_id:
                 user.private_control_message_id = message_id
                 await self._session.commit()

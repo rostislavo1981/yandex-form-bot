@@ -94,7 +94,7 @@ class NotificationWorker:
                 text=text,
                 inline_keyboard=keyboard,
             )
-            message_id = str(result.get("msgId") or result.get("messageId") or "")
+            message_id = result.get("message_id", "")
             log.status = "sent"
             log.external_message_id = message_id
             log.sent_at = datetime.now(UTC)
