@@ -289,11 +289,13 @@ class ReportService:
 
     async def _update_obligation(self, report: DailyReport, user_id: int) -> None:
         result = await self._session.execute(
-            select(ReportObligation).where(
+            select(ReportObligation)
+            .where(
                 ReportObligation.report_date == report.report_date,
                 ReportObligation.user_id == user_id,
                 ReportObligation.object_id == report.object_id,
             )
+            .with_for_update(skip_locked=True)
         )
         obligation = result.scalar_one_or_none()
         now = datetime.now(UTC)
