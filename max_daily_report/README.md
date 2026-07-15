@@ -8,9 +8,10 @@ FastAPI backend + Vite React frontend for daily construction reports inside the
 ```bash
 make install       # create venv, install deps, copy .env.example to .env
 make db-up         # start PostgreSQL in Docker
-make test          # pytest
+make test          # pytest (uses mdr_test database)
 make lint          # ruff
 make api           # uvicorn --reload on :8000
+make frontend-check # build + vitest
 ```
 
 Fill `.env` with `MAX_BOT_TOKEN`, `MAX_BOT_USERNAME`, `MAX_WEBHOOK_SECRET`,
