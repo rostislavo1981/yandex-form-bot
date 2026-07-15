@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, String, UniqueConstraint, func
+from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Index, String, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
@@ -9,9 +9,13 @@ from app.models.catalogs import Object
 
 class Contract(Base):
     __tablename__ = "contracts"
+    __table_args__ = (
+        UniqueConstraint("code", name="uq_contract_code"),
+        Index("ix_contracts_code", "code", unique=True),
+    )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    code: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    code: Mapped[str] = mapped_column(String(64), nullable=False)
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[DateTime] = mapped_column(
@@ -29,6 +33,8 @@ class ObjectContract(Base):
     __tablename__ = "object_contracts"
     __table_args__ = (
         UniqueConstraint("object_id", "contract_id", name="uq_object_contract"),
+        Index("ix_object_contracts_object_id", "object_id"),
+        Index("ix_object_contracts_contract_id", "contract_id"),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)

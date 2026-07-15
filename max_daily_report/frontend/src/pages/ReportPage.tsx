@@ -64,6 +64,8 @@ export function ReportPage() {
     return (q: string) => searchStages(object.id, q).then((r) => r.items)
   }, [object])
 
+  const objectSearch = useCallback((q: string) => searchObjects(q).then((r) => r.items), [])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!object || !stage) {
@@ -149,7 +151,7 @@ export function ReportPage() {
           label="Объект"
           value={object}
           onChange={handleObjectChange}
-          searchFn={useCallback((q) => searchObjects(q).then((r) => r.items), [])}
+          searchFn={objectSearch}
           placeholder="Поиск объекта..."
         />
 
