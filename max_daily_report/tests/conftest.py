@@ -8,9 +8,11 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool
 
+PRODUCTION_DB_SUFFIX = "mdr_db"
+
 TEST_DATABASE_URL = os.environ.get(
     "TEST_DATABASE_URL",
-    "postgresql+psycopg2://mdr_user:mdr_pass@localhost:5432/mdr_db",
+    "postgresql+psycopg2://mdr_user:mdr_pass@localhost:5432/mdr_test",
 )
 ASYNC_TEST_DATABASE_URL = TEST_DATABASE_URL.replace(
     "postgresql+psycopg2", "postgresql+asyncpg"
@@ -21,6 +23,20 @@ TestSession = sessionmaker(test_engine)
 
 async_test_engine = create_async_engine(ASYNC_TEST_DATABASE_URL, future=True, poolclass=NullPool)
 AsyncTestSession = async_sessionmaker(async_test_engine, expire_on_commit=False)
+
+
+def _assert_not_production_db() -> None:
+    """Guard: refuse to run if connected to the production database."""
+    with test_engine.connect() as conn:
+        result = conn.execute(text("SELECT current_database()"))
+        db_name = result.scalar()
+    if not db_name:
+        return
+    if db_name == PRODUCTION_DB_SUFFIX:
+        raise RuntimeError(
+            f"Refusing to TRUNCATE production database '{db_name}'. "
+            f"Set TEST_DATABASE_URL to a *_test database."
+        )
 
 
 @pytest.fixture(scope="function")
@@ -43,6 +59,7 @@ async def async_session():
 @pytest.fixture(scope="function", autouse=True)
 def clear_tables():
     """Truncate all tables before each test to keep them independent."""
+    _assert_not_production_db()
     truncate_sql = text(
         "TRUNCATE TABLE outbox_events, report_works, report_equipment, daily_reports, "
         "report_obligations, responsible_object_assignments, work_type_methods, "
