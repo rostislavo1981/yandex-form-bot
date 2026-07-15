@@ -26,10 +26,13 @@ AsyncTestSession = async_sessionmaker(async_test_engine, expire_on_commit=False)
 
 
 def _assert_not_production_db() -> None:
-    """Guard: refuse to run if connected to the production database."""
-    with test_engine.connect() as conn:
-        result = conn.execute(text("SELECT current_database()"))
-        db_name = result.scalar()
+    """Guard: refuse to run against the production database.
+
+    Имя берётся из URL движка (не через живое подключение): именно URL
+    определяет, куда уйдёт TRUNCATE, а негативный тест guard'а не должен
+    требовать существующей продовой БД (в CI её нет).
+    """
+    db_name = test_engine.url.database
     if not db_name:
         return
     if db_name == PRODUCTION_DB_SUFFIX:
