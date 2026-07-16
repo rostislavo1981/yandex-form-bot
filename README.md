@@ -119,6 +119,8 @@ E2E smoke (проверяет pipeline → DB → API → Mini App JSON):
 ## Документация
 
 - `docs/max-mini-app-spec/SUMMARY.md` — окончательное ТЗ нового MVP (Mini App-first)
+- `docs/max-mini-app-spec/17_yandex_cloud_runbook.md` — runbook развёртывания пилота в Yandex Cloud (YC00–YC05)
+- `docs/max-mini-app-spec/17_yandex_cloud_runbook.md` — runbook развёртывания пилота в Yandex Cloud (YC00–YC05)
 - `docs/max-mini-app-spec/04_api_contract.md` — актуальный REST-контракт, включая `/api/admin/catalogs`
 - `docs/api.md` — архивный REST API V1
 - `docs/architecture.md` — архивная архитектура V1

@@ -1,13 +1,15 @@
 # PROGRESS
 
-Обновлено: 2026-07-15.
+Обновлено: 2026-07-16.
 
 ## Текущий статус
 
-Статус `DOCKER QUALITY GATE PASSED`. Все автоматизируемые проверки O08 пройдены
-в живом прогоне (ранее верифицированы только статически). Backend 179/179,
-frontend 15/15, prod-build чистый. Следующий шаг — ручная приёмка через MAX
-(docker-compose.phone.yml, R15).
+Статус `LOCAL RELEASE CANDIDATE READY`. Backend 184/184, frontend 16/16,
+Ruff, Alembic и production build чистые. Production-smoke проверен вместе с
+отдельным worker, scheduler, ежедневным backup и восстановлением дампа.
+Телефонный стенд поднят, реальный Excel импортирован, webhook MAX указывает на
+живой HTTPS tunnel. Осталась только ручная проверка кнопок/формы пользователем
+в MAX и назначение реальных ответственных на объекты.
 
 | Итерация | Статус | Результат |
 |---|---|---|
@@ -27,7 +29,7 @@ frontend 15/15, prod-build чистый. Следующий шаг — ручн�
 | R12 | COMPLETED | Timesheet Excel with day_status styling |
 | R13 | COMPLETED | CI with backend/frontend/docker jobs |
 | R14 | COMPLETED | Input validation hardening |
-| R15 | BLOCKED | Requires real MAX token/domain |
+| R15 | IN PROGRESS | Phone stand + webhook ready; manual MAX taps remain |
 | R16 | COMPLETED | Object mapping, Docker DoD and Yandex Cloud plan |
 | O00 | COMPLETED | Docker quality gate (test stages, docker-compose.test.yml) |
 | O01 | COMPLETED | Contract model, ObjectContract, report snapshots |
@@ -36,8 +38,8 @@ frontend 15/15, prod-build чистый. Следующий шаг — ручн�
 | O04 | COMPLETED | Frontend contract selection in report form |
 | O05 | COMPLETED | Report snapshots, contract validation |
 | O06 | COMPLETED | Timesheet Excel with contract info |
-| O07 | COMPLETED | Prod compose: migrations init, outbox scheduler |
-| O08 | COMPLETED | Docker quality gate: all tests pass, builds clean |
+| O07 | COMPLETED | Prod compose: migrations, separate worker, scheduler, backup |
+| O08 | COMPLETED | Docker gate + live prod/restore smoke pass |
 
 ## Чек-лист
 
@@ -56,7 +58,7 @@ frontend 15/15, prod-build чистый. Следующий шаг — ручн�
 - [x] R12: Timesheet Excel styling
 - [x] R13: GitHub Actions CI
 - [x] R14: Comment max_length
-- [ ] R15: Production acceptance (BLOCKED)
+- [ ] R15: Manual acceptance in MAX (stand and webhook are ready)
 - [x] R16: Object mapping, Docker and Yandex Cloud plan
 - [x] O00: Docker test stages, docker-compose.test.yml
 - [x] O01: Contract model, ObjectContract, DailyReport snapshots
@@ -65,10 +67,78 @@ frontend 15/15, prod-build чистый. Следующий шаг — ручн�
 - [x] O04: Frontend contract selection (auto/single/multiple)
 - [x] O05: Report contract validation and snapshots
 - [x] O06: Timesheet Excel with contract info
-- [x] O07: Prod compose migrations init, outbox in scheduler
-- [x] O08: Docker quality gate (179 backend + 15 frontend, builds clean, alembic check)
+- [x] O07: Prod compose migrations init, separate outbox worker, scheduler, backup
+- [x] O08: Docker quality gate (184 backend + 16 frontend, builds clean, alembic check, restore smoke)
 
 ## HANDOFF NOTES
+
+### 2026-07-16 — release-candidate hardening and live phone stand
+
+**Ветка:** `codex/i00-skeleton`
+
+**Сделано:**
+- реальный формат файла «СПИСОК объектов…xlsx» распознаётся по заголовку
+  `краткое название`, преобразуется в Objects/ObjectMappings и больше не может
+  пройти как пустой no-op;
+- короткое имя применяется к объекту, длинные названия хранятся как договоры;
+- при нескольких договорах выбор обязателен и на frontend, и на backend;
+- «Кто не сдал» учитывает отсутствующие, pending и missed обязательства;
+- импорт ограничен 10 МБ и сериализован advisory-lock от параллельной гонки;
+- добавлены `/api/ready`, отдельный outbox worker и production backup с
+  restore-smoke;
+- CI запускает реальные миграции и DB-aware readiness smoke;
+- phone compose сам запускает миграции, activation script получает tunnel и
+  регистрирует webhook;
+- предоставленный Excel применён в изолированной phone DB: 38 новых объектов,
+  37 уникальных длинных названий, 38 рабочих связей; две служебные ячейки
+  `??`/`нет пока договора` пропущены.
+
+**Проверки:**
+- backend Docker: **184 passed**;
+- frontend Docker: **16 passed**, production build OK;
+- Ruff, `git diff --check`, compose config и `alembic check`: OK;
+- production live smoke: migrations exit 0, API/worker/scheduler/backup healthy;
+- custom-format backup создан и успешно восстановлен во временную DB;
+- phone HTTPS `/api/ready`: OK; webhook виден в MAX subscriptions с полным
+  набором событий.
+
+**Осталось вручную (R15):**
+- установить текущий tunnel URL как Mini App URL в кабинете MAX;
+- открыть бота/группу, нажать все видимые кнопки и отправить один отчёт;
+- после регистрации реальных пользователей назначить им объекты через админку
+  или полный Excel Users/Assignments.
+
+### 2026-07-16 — YC track: local runbook + push script (YC03 prep)
+
+**Агент:** Kilo (kilo-auto/free)
+**Ветка:** codex/i00-skeleton
+**Итерация:** YC03 (подготовка) — доставка image в Yandex Container Registry
+**Коммит:** см. ниже
+
+**Сделано:**
+- `docs/max-mini-app-spec/17_yandex_cloud_runbook.md` — runbook YC00–YC05 с
+  командами, DoD и разделением «требует YC» / локально-выполнимое
+- `max_daily_report/scripts/push_image.sh` — сборка image с immutable SHA-тегом,
+  push в YCR, вывод digest для rollback (YC03)
+
+**Не сделано:**
+- YC00/YC01/YC02/YC04/YC05 — требуют живого облачного аккаунта (вне окружения)
+- реальный `docker push` в YCR — требует `docker login` в registry
+
+**Проверки:**
+- `sh -n scripts/push_image.sh` → syntax OK
+- `docker compose -f docker-compose.prod.yml config` → valid (exit 0)
+- prod build (api/scheduler/migrations) пройден ранее в O08 live run
+
+**Blocker/риск:**
+- облачный deploy требует YC-аккаунт, домен и YCR-доступ — только пользователь
+
+**Следующий единственный шаг:**
+- YC03: при наличии YCR `export YCR_REGISTRY=... && ./scripts/push_image.sh`
+
+**Изменённые файлы:**
+- docs/max-mini-app-spec/17_yandex_cloud_runbook.md (новый)
+- max_daily_report/scripts/push_image.sh (новый)
 
 ### 2026-07-16 — O08 Docker quality gate (live run)
 
