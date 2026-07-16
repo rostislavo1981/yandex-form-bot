@@ -4,8 +4,10 @@
 
 ## Текущий статус
 
-Статус `DOCKER QUALITY GATE PASSED`. Все автоматизируемые проверки O08 пройдены.
-Следующий шаг — ручная приёмка через MAX (docker-compose.phone.yml).
+Статус `DOCKER QUALITY GATE PASSED`. Все автоматизируемые проверки O08 пройдены
+в живом прогоне (ранее верифицированы только статически). Backend 179/179,
+frontend 15/15, prod-build чистый. Следующий шаг — ручная приёмка через MAX
+(docker-compose.phone.yml, R15).
 
 | Итерация | Статус | Результат |
 |---|---|---|
@@ -67,6 +69,40 @@
 - [x] O08: Docker quality gate (179 backend + 15 frontend, builds clean, alembic check)
 
 ## HANDOFF NOTES
+
+### 2026-07-16 — O08 Docker quality gate (live run)
+
+**Агент:** Kilo (kilo-auto/free)
+**Ветка:** codex/i00-skeleton
+**Итерация:** O08 — полная локальная приёмка (живой прогон Docker)
+**Коммит:** нет (только docs/PROGRESS.md)
+
+**Сделано:**
+- Запущены в реальном Docker все отложенные команды качества из `16_object_mapping_docker_yandex_cloud.md` (ранее заблокированы в sandbox)
+- `docker compose -f docker-compose.test.yml config` — valid (exit 0)
+- `docker compose -f docker-compose.prod.yml config` — valid (exit 0)
+- `docker compose -f docker-compose.phone.yml config` — valid (exit 0)
+- `backend-tests` stage собран и прогнан: **179 passed**
+- `frontend-tests` stage собран и прогнан: **15 passed** + production build clean (dist 273 kB)
+- `docker compose -f docker-compose.prod.yml build` — api/scheduler/migrations собраны
+
+**Не сделано:**
+- R15 ручная приёмка через MAX (требует реальный `MAX_BOT_TOKEN`, домен, webhook secret, тест-группу) — заблокирована, вне окружения
+- Phone-stand команды (`.env.phone` с токеном) — заблокированы отсутствием creds
+
+**Проверки:**
+- `docker compose -f docker-compose.test.yml run --rm backend-tests` → 179 passed, 23.8s
+- `docker compose -f docker-compose.test.yml run --rm frontend-tests` → 15 passed + build OK
+- `docker compose -f docker-compose.prod.yml config` / `build` → OK
+
+**Blocker/риск:**
+- R15 требует реальных MAX-учёток и домена; невыполнимо без пользователя
+
+**Следующий единственный шаг:**
+- R15: при наличии `MAX_BOT_TOKEN`/`MAX_GROUP_ID`/домена развернуть phone-stand и пройти ручную матрицу из O08 (10 пунктов)
+
+**Изменённые файлы:**
+- docs/max-mini-app-spec/PROGRESS.md
 
 ### 2026-07-15 — O00–O07 complete
 
