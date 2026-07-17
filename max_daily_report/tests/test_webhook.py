@@ -270,7 +270,7 @@ def test_webhook_group_missing(client: TestClient, monkeypatch, db_session):
     from datetime import date
 
     from app.models.catalogs import Object, ObjectStage, Stage
-    from app.models.reports import ResponsibleObjectAssignment
+    from app.models.reports import ReportObligation, ResponsibleObjectAssignment
     from app.models.users import User
 
     user = User(max_user_id="max-miss", full_name="Missing User", role="responsible")
@@ -279,11 +279,22 @@ def test_webhook_group_missing(client: TestClient, monkeypatch, db_session):
     db_session.add_all([user, obj, stage])
     db_session.flush()
     db_session.add(ObjectStage(object_id=obj.id, stage_id=stage.id))
-    db_session.add(ResponsibleObjectAssignment(
+    assignment = ResponsibleObjectAssignment(
         user_id=user.id, object_id=obj.id,
         active_from=date(2026, 1, 1), active_to=date(2026, 12, 31),
         schedule_type="daily",
-    ))
+    )
+    db_session.add(assignment)
+    db_session.flush()
+    db_session.add(
+        ReportObligation(
+            report_date=date.today(),
+            assignment_id=assignment.id,
+            user_id=user.id,
+            object_id=obj.id,
+            status="pending",
+        )
+    )
     db_session.commit()
 
     event = {

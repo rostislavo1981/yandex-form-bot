@@ -188,6 +188,39 @@ async def test_single_primary_contract_auto_filled():
 
 
 @pytest.mark.asyncio
+async def test_multiple_active_contracts_require_explicit_choice():
+    data = await _seed_snapshot_scenario("o05-multiple")
+    async with AsyncSessionLocal() as session:
+        second = Contract(
+            code="ctr-o05-multiple-2",
+            full_name="Договор №2 подробный",
+        )
+        session.add(second)
+        await session.flush()
+        session.add(
+            ObjectContract(
+                object_id=data["obj"].id,
+                contract_id=second.id,
+                is_primary=False,
+                active=True,
+            )
+        )
+        await session.commit()
+
+    payload = _report_payload(
+        object_id=data["obj"].id,
+        stage_id=data["stage"].id,
+    )
+    response = client.post(
+        "/api/reports",
+        json=payload,
+        headers={"Idempotency-Key": "key-o05-multiple"},
+    )
+    assert response.status_code == 422
+    assert "Выберите договор" in response.json()["detail"]["error"]
+
+
+@pytest.mark.asyncio
 async def test_idempotent_submit_no_duplicate():
     data = await _seed_snapshot_scenario("o05-idem")
     payload = _report_payload(

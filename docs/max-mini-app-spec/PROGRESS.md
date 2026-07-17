@@ -1,15 +1,16 @@
 # PROGRESS
 
-Обновлено: 2026-07-16.
+Обновлено: 2026-07-17.
 
 ## Текущий статус
 
-Статус `LOCAL RELEASE CANDIDATE READY`. Backend 184/184, frontend 16/16,
+Статус `LOCAL RELEASE CANDIDATE READY / PHONE STAND ACTIVE`. Backend 188/188, frontend 16/16,
 Ruff, Alembic и production build чистые. Production-smoke проверен вместе с
 отдельным worker, scheduler, ежедневным backup и восстановлением дампа.
-Телефонный стенд поднят, реальный Excel импортирован, webhook MAX указывает на
-живой HTTPS tunnel. Осталась только ручная проверка кнопок/формы пользователем
-в MAX и назначение реальных ответственных на объекты.
+Телефонный стенд пересобран, реальный Excel применён повторно, webhook MAX имеет
+ровно одну подписку на текущий живой HTTPS tunnel. Все 40 объектов связаны с
+активными этапами. Осталась ручная проверка кнопок/формы пользователем в MAX и
+назначение реальных ответственных на 38 импортированных объектов.
 
 | Итерация | Статус | Результат |
 |---|---|---|
@@ -29,7 +30,7 @@ Ruff, Alembic и production build чистые. Production-smoke провере�
 | R12 | COMPLETED | Timesheet Excel with day_status styling |
 | R13 | COMPLETED | CI with backend/frontend/docker jobs |
 | R14 | COMPLETED | Input validation hardening |
-| R15 | IN PROGRESS | Phone stand + webhook ready; manual MAX taps remain |
+| R15 | IN PROGRESS | Phone stand и единственный webhook активны; manual MAX taps remain |
 | R16 | COMPLETED | Object mapping, Docker DoD and Yandex Cloud plan |
 | O00 | COMPLETED | Docker quality gate (test stages, docker-compose.test.yml) |
 | O01 | COMPLETED | Contract model, ObjectContract, report snapshots |
@@ -68,9 +69,38 @@ Ruff, Alembic и production build чистые. Production-smoke провере�
 - [x] O05: Report contract validation and snapshots
 - [x] O06: Timesheet Excel with contract info
 - [x] O07: Prod compose migrations init, separate outbox worker, scheduler, backup
-- [x] O08: Docker quality gate (184 backend + 16 frontend, builds clean, alembic check, restore smoke)
+- [x] O08: Docker quality gate (188 backend + 16 frontend, builds clean, alembic check, restore smoke)
 
 ## HANDOFF NOTES
+
+### 2026-07-17 — stale webhook cleanup, simple Excel stages, live recheck
+
+**Сделано:**
+- регистрация webhook сначала добавляет текущий URL, затем удаляет все старые
+  подписки; реальный MAX проверен — осталась ровно одна подписка;
+- activation script всегда создаёт новый Quick Tunnel и умеет обойти временный
+  отрицательный DNS-кэш macOS через публичный resolver;
+- простой Excel связывает каждый активный импортированный объект со всеми
+  активными этапами и отклоняется, если этапов нет;
+- незавершённый endpoint `POST /import/{import_id}/apply` с 501 удалён;
+- устранена гонка таймера blur/focus в `SearchSelect` при быстрой смене объекта.
+
+**Проверки:**
+- backend Docker: **188 passed**, Ruff clean;
+- frontend Docker: **16 passed**, production build clean;
+- Alembic check, compose config, `git diff --check`: OK;
+- production API/worker/scheduler healthy, backup создан и restore-smoke passed;
+- локальный Caddy в этом прогоне не занял 443, потому что порт был занят внешним
+  процессом; production image и внутренний readiness проверены;
+- phone HTTPS `/api/ready`: OK; 40 объектов, 4 активных этапа, 156 активных
+  object-stage связей, 0 объектов без этапов;
+- webhook subscriptions: 1 текущий URL, 2 старых URL удалены.
+
+**Осталось вручную (R15):**
+- указать напечатанный текущий Quick Tunnel как Mini App URL в кабинете MAX;
+- нажать кнопки в личном и групповом пульте и отправить первый отчёт;
+- после появления реальных пользователей назначить ответственных на 38
+  импортированных объектов.
 
 ### 2026-07-16 — release-candidate hardening and live phone stand
 

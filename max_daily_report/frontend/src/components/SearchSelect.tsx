@@ -21,12 +21,22 @@ export function SearchSelect<T extends CatalogItem = CatalogItem>({
 }: SearchSelectProps<T>) {
   const id = useId()
   const inputRef = useRef<HTMLInputElement>(null)
+  const blurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [query, setQuery] = useState(value ? `${value.name} (${value.code})` : '')
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [items, setItems] = useState<T[]>([])
   const debouncedQuery = useDebounce(query, 300)
+
+  const cancelPendingClose = () => {
+    if (blurTimeoutRef.current !== null) {
+      clearTimeout(blurTimeoutRef.current)
+      blurTimeoutRef.current = null
+    }
+  }
+
+  useEffect(() => () => cancelPendingClose(), [])
 
   useEffect(() => {
     if (!open) return
@@ -55,6 +65,7 @@ export function SearchSelect<T extends CatalogItem = CatalogItem>({
   }
 
   const handleClear = () => {
+    cancelPendingClose()
     onChange(null)
     setQuery('')
     setItems([])
@@ -83,12 +94,22 @@ export function SearchSelect<T extends CatalogItem = CatalogItem>({
           className="field-input"
           value={query}
           onChange={(e) => {
+            cancelPendingClose()
             setQuery(e.target.value)
             if (!open) setOpen(true)
             if (value) onChange(null)
           }}
-          onFocus={() => setOpen(true)}
-          onBlur={() => setTimeout(() => setOpen(false), 150)}
+          onFocus={() => {
+            cancelPendingClose()
+            setOpen(true)
+          }}
+          onBlur={() => {
+            cancelPendingClose()
+            blurTimeoutRef.current = setTimeout(() => {
+              setOpen(false)
+              blurTimeoutRef.current = null
+            }, 150)
+          }}
           placeholder={placeholder}
           disabled={disabled}
           autoComplete="off"

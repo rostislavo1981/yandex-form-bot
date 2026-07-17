@@ -175,5 +175,15 @@ class MAXClient:
         response.raise_for_status()
         return response.json()
 
+    async def delete_webhook_subscription(self, url: str) -> dict[str, Any]:
+        """Delete a webhook subscription by its exact callback URL."""
+        response = await self._client.delete(
+            f"{self._base_url}/subscriptions",
+            headers=_headers(),
+            params={"url": url},
+        )
+        response.raise_for_status()
+        return response.json()
+
     async def close(self) -> None:
         await self._client.aclose()

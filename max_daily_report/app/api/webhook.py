@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -224,7 +224,12 @@ async def _handle_group_missing(session: AsyncSession, chat_id: str) -> None:
             & (ReportObligation.object_id == Object.id)
             & (ReportObligation.report_date == today),
         )
-        .where(ReportObligation.id.is_(None))
+        .where(
+            or_(
+                ReportObligation.id.is_(None),
+                ReportObligation.status.in_(["pending", "missed"]),
+            )
+        )
         .where(ResponsibleObjectAssignment.active.is_(True))
         .where(ResponsibleObjectAssignment.active_from <= today)
         .where(ResponsibleObjectAssignment.active_to >= today)

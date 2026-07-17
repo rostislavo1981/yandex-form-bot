@@ -236,7 +236,14 @@ export async function importCatalogs(file: File): Promise<unknown> {
   })
   if (!response.ok) {
     const body = await response.json().catch(() => ({}))
-    throw new Error(body.error || body.detail || `HTTP ${response.status}`)
+    const detail = body.error || body.detail
+    throw new Error(
+      typeof detail === 'string'
+        ? detail
+        : detail
+          ? JSON.stringify(detail)
+          : `HTTP ${response.status}`,
+    )
   }
   return response.json()
 }

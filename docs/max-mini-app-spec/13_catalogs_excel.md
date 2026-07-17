@@ -26,13 +26,13 @@ PostgreSQL — источник истины. Excel — транспорт дл�
 
 - **Экспорт Excel** — скачивает `/api/catalogs/export.xlsx`.
 - **Шаблон Excel** — скачивает пустой `/api/catalogs/template.xlsx`.
-- **Импорт** — upload `.xlsx` в `/api/catalogs/import/apply` (validate + apply одним запросом). Прямой вызов `/api/catalogs/import/validate` остаётся доступен для preview; staged apply по `import_id` зарезервирован.
+- **Импорт** — upload `.xlsx` в `/api/catalogs/import/apply` (validate + apply одним запросом). Прямой вызов `/api/catalogs/import/validate` остаётся доступен для preview.
 
 Админ-страница не заменяет Excel bulk-загрузку, а дополняет её быстрым поштучным редактированием.
 
 ## Шаблон
 
-Листы: `Users`, `Objects`, `Stages`, `ObjectStages`, `Contractors`, `Units`, `Equipment`, `WorkTypes`, `WorkMethods`, `WorkTypeMethods`, `Assignments`.
+Листы: `Users`, `Objects`, `Stages`, `ObjectStages`, `Contractors`, `Units`, `Equipment`, `WorkTypes`, `WorkMethods`, `WorkTypeMethods`, `Assignments`, `ObjectMappings`.
 
 Обязательные служебные колонки: `code`, `name`, `active`, `sort_order`. Связи задаются по code, не по отображаемому имени.
 
@@ -43,9 +43,26 @@ PostgreSQL — источник истины. Excel — транспорт дл�
 3. Backend возвращает preview: create/update/deactivate/errors.
 4. `POST /api/catalogs/import/apply` выполняет validate и upsert одной транзакцией.
 5. Ошибка откатывает весь импорт.
-6. Staged apply по ранее сохранённому `import_id` (`POST /api/catalogs/import/{import_id}/apply`) зарезервирован и не реализован.
 
 Отсутствующая строка не деактивируется автоматически. Для деактивации нужно `active=0`.
+
+### Простой список объектов
+
+Файл из текущего рабочего процесса можно загружать без переделки в полный
+шаблон, если в нём есть колонка `краткое название`. Backend:
+
+1. создаёт стабильный code объекта из короткого имени;
+2. хранит короткое имя в `Objects`;
+3. сохраняет каждое подробное название справа как договор и связь
+   `ObjectMappings`/`ObjectContract`;
+4. пропускает служебные значения `??` и `нет пока договора`;
+5. связывает каждый импортированный активный объект со всеми активными этапами,
+   уже находящимися в PostgreSQL;
+6. отклоняет apply, если активных этапов нет.
+
+Список этапов остаётся динамическим и управляется на backend. Простой файл не
+содержит MAX ID пользователей, поэтому назначения ответственных не угадываются:
+их задают в админке или полным Excel через `Users` и `Assignments`.
 
 ## Поиск
 

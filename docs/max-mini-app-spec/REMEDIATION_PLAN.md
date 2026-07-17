@@ -6,7 +6,8 @@
 табель каждого объекта, краткие отчёты и напоминания в общей группе MAX,
 рабочие видимые кнопки, Excel и безопасный production-запуск.
 
-**Release candidate: BLOCKED.** Тег RC запрещён до закрытия R15.
+**Release candidate: MANUAL ACCEPTANCE.** Автоматический gate и phone stand
+готовы; тег RC запрещён до ручного закрытия R15.
 
 ## Правила работы для агента
 
@@ -49,7 +50,7 @@
 | R12 | ✅ DONE | P1 | R10 | Полный Excel-табель и download UI |
 | R13 | ✅ DONE | P1 | R00–R12 | CI проверяет весь продукт |
 | R14 | ✅ DONE | P2 | R00 | Auth/input hardening и legacy cleanup |
-| R15 | 🚫 BLOCKED | P0 | R01–R14 | Реальная MAX production acceptance |
+| R15 | 🟡 IN PROGRESS | P0 | R01–R14 | Phone stand и webhook активны; ручная MAX acceptance |
 | R16 | ✅ DONE | P1 | R15 | Документация обновлена |
 
 R00–R05 выполнены строго последовательно. R06–R14 выполнены после R05.
@@ -362,9 +363,10 @@ entry point import smoke. Коммит: `fix(R14): harden auth and packaging`.
 
 ## R15. Реальная production-приёмка MAX
 
-**Предусловия от пользователя:** staging/production domain, token, webhook secret,
-тестовая группа и разрешение регистрировать subscription/писать сообщения.
-Без этого записать blocker и остановиться.
+**Технические предусловия готовы:** token/secret загружены из gitignored
+`.env.phone`, HTTPS Quick Tunnel и subscription проверены. От пользователя
+остались действия в MAX: установить текущий Mini App URL, добавить/открыть бота
+в тестовой группе и пройти кнопки.
 
 **Перед началом:** подтверждённый backup, clean git, R00–R14 зелёные, bot имеет
 write/pin, secrets только в `.env`.
