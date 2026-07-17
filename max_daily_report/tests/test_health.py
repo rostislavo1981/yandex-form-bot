@@ -15,3 +15,11 @@ def test_health_endpoint_returns_ok() -> None:
     assert body["status"] == "ok"
     assert body["app_name"] == settings.app_name
     assert body["version"] == settings.version
+
+
+def test_readiness_endpoint_checks_database() -> None:
+    client = TestClient(app)
+    response = client.get("/api/ready")
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "ready"

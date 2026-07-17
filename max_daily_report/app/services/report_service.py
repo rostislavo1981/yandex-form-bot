@@ -81,7 +81,9 @@ class ReportService:
                     "Указанный договор не привязан к объекту или неактивен"
                 )
         else:
-            # Один договор определяется автоматически: primary, иначе любой active.
+            # Ровно один активный договор определяется автоматически. При двух
+            # и более пользователь обязан выбрать договор явно: primary влияет
+            # только на сортировку/подсказку, но не подменяет решение человека.
             mapping_result = await self._session.execute(
                 select(ObjectContract).where(
                     ObjectContract.object_id == data.object_id,
@@ -89,11 +91,13 @@ class ReportService:
                 )
             )
             mappings = list(mapping_result.scalars().all())
-            primary = [m for m in mappings if m.is_primary]
-            candidates = primary if primary else mappings
-            if len(candidates) == 1:
-                data.contract_id = candidates[0].contract_id
+            if len(mappings) == 1:
+                data.contract_id = mappings[0].contract_id
                 contract = await self._get(Contract, data.contract_id)
+            elif len(mappings) > 1:
+                raise ReportValidationError(
+                    "Выберите договор для объекта с несколькими договорами"
+                )
 
         await self._validate(responsible, data)
 

@@ -6,7 +6,6 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
-
 from app.models.catalogs import Object
 from app.models.contracts import Contract, ObjectContract
 from app.models.reports import ResponsibleObjectAssignment

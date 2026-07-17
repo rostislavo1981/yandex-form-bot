@@ -72,6 +72,10 @@ export function ReportPage() {
       setError('Выберите объект и этап')
       return
     }
+    if (object.contracts.length > 1 && !contract) {
+      setError('Выберите договор')
+      return
+    }
     setSubmitting(true)
     setError(null)
     setSuccess(null)
@@ -159,7 +163,7 @@ export function ReportPage() {
           <div className="field">
             <label className="field-label">Полное название</label>
             <div className="field-input-readonly">
-              {object.contracts?.[0]?.full_name || object.name}
+              {contract?.full_name || object.contracts?.[0]?.full_name || object.name}
             </div>
           </div>
         )}

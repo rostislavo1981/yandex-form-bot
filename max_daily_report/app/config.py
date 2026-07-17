@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8000
     log_level: str = "INFO"
+    max_catalog_upload_bytes: int = 10 * 1024 * 1024
 
 
 settings = Settings()

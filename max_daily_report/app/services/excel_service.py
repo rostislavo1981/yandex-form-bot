@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from io import BytesIO
 from typing import Any
 
@@ -27,6 +28,8 @@ from app.models.users import User
 from app.repos.catalogs import CatalogRepo
 
 _EMPTY_CONTRACT_MARKERS = ("", "??", "нет пока договора")
+_SIMPLE_OBJECTS_HEADER = "краткое название"
+_CATALOG_IMPORT_LOCK_ID = 6146747792393678674
 
 SHEET_COLUMNS = {
     "Users": ["code", "name", "role", "active", "sort_order"],
@@ -97,6 +100,87 @@ def _normalize_bool(value: Any) -> bool:
     return bool(text)
 
 
+def _stable_import_code(prefix: str, value: str) -> str:
+    """Build a deterministic short code for simple two-column workbooks."""
+    normalized = " ".join(value.lower().split())
+    digest = hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:12].upper()
+    return f"{prefix}-{digest}"
+
+
+def _convert_simple_object_workbook(source: Workbook) -> Workbook | None:
+    """Convert the user's simple ``short name | contract(s)`` workbook.
+
+    The Yandex Form source has a title above the table, the short name in one
+    column and one or more official names in the columns to its right.  It is
+    intentionally accepted directly so an administrator does not have to
+    manually rebuild the full multi-sheet catalog template.
+    """
+    source_sheet = None
+    header_row = None
+    short_col = None
+    for ws in source.worksheets:
+        for row in ws.iter_rows():
+            for cell in row:
+                if _normalize_text(cell.value).lower() == _SIMPLE_OBJECTS_HEADER:
+                    source_sheet = ws
+                    header_row = cell.row
+                    short_col = cell.column
+                    break
+            if source_sheet is not None:
+                break
+        if source_sheet is not None:
+            break
+
+    if source_sheet is None or header_row is None or short_col is None:
+        return None
+
+    converted = Workbook()
+    converted.remove(converted.active)
+    objects_ws = converted.create_sheet("Objects")
+    mappings_ws = converted.create_sheet("ObjectMappings")
+    objects_ws.append(SHEET_COLUMNS["Objects"])
+    mappings_ws.append(SHEET_COLUMNS["ObjectMappings"])
+
+    sort_order = 0
+    for row_idx in range(header_row + 1, source_sheet.max_row + 1):
+        short_name = _normalize_text(source_sheet.cell(row_idx, short_col).value)
+        if not short_name:
+            continue
+        sort_order += 1
+        object_code = _stable_import_code("OBJ", short_name)
+        objects_ws.append(
+            [object_code, short_name, "own", "", 1, sort_order]
+        )
+
+        contract_values = [
+            _normalize_text(source_sheet.cell(row_idx, col_idx).value)
+            for col_idx in range(short_col + 1, source_sheet.max_column + 1)
+        ]
+        contract_values = [value for value in contract_values if value]
+        if not contract_values:
+            contract_values = [""]
+
+        for contract_idx, full_name in enumerate(contract_values):
+            marker = full_name.lower()
+            if marker in _EMPTY_CONTRACT_MARKERS:
+                contract_code = marker
+                normalized_full_name = ""
+            else:
+                contract_code = _stable_import_code("CTR", full_name)
+                normalized_full_name = full_name
+            mappings_ws.append(
+                [
+                    object_code,
+                    short_name,
+                    contract_code,
+                    normalized_full_name,
+                    int(contract_idx == 0),
+                    1,
+                ]
+            )
+    return converted
+
+
 def build_template() -> BytesIO:
     """Build an empty catalog import template workbook."""
     wb = Workbook()
@@ -132,6 +216,12 @@ class CatalogImportValidator:
 
     def __init__(self, workbook_bytes: bytes) -> None:
         self._wb = load_workbook(filename=BytesIO(workbook_bytes), data_only=True)
+        self._simple_object_workbook = False
+        if not set(self._wb.sheetnames).intersection(SHEET_ORDER):
+            converted = _convert_simple_object_workbook(self._wb)
+            if converted is not None:
+                self._wb = converted
+                self._simple_object_workbook = True
         self._errors: list[dict] = []
         self._warnings: list[dict] = []
         self._preview: dict = {}
@@ -142,6 +232,14 @@ class CatalogImportValidator:
         self._warnings = []
         self._preview = {}
         self._seen_object_mapping_pairs = {}
+        recognized_sheets = set(self._wb.sheetnames).intersection(SHEET_ORDER)
+        if not recognized_sheets:
+            self._add_error(
+                "Workbook",
+                0,
+                "Не найден ни один поддерживаемый лист или таблица с заголовком "
+                "'краткое название'",
+            )
         for sheet_name in SHEET_ORDER:
             ws = self._wb[sheet_name] if sheet_name in self._wb.sheetnames else None
             if ws is None:
@@ -163,6 +261,10 @@ class CatalogImportValidator:
     @property
     def errors(self) -> list[dict]:
         return self._errors
+
+    @property
+    def is_simple_object_workbook(self) -> bool:
+        return self._simple_object_workbook
 
     def iter_rows(self, sheet_name: str) -> list[dict]:
         ws = self._wb[sheet_name] if sheet_name in self._wb.sheetnames else None
@@ -280,6 +382,13 @@ class CatalogImportApplier:
         self._work_types: dict[str, WorkType] = {}
 
     async def apply(self, validator: CatalogImportValidator) -> CatalogImport:
+        # A workbook touches several related tables. Serialize apply operations so
+        # two simultaneous admin clicks cannot both decide that the same code is
+        # absent and then race on a unique constraint.
+        await self._session.execute(
+            sa.text("SELECT pg_advisory_xact_lock(:lock_id)"),
+            {"lock_id": _CATALOG_IMPORT_LOCK_ID},
+        )
         import_record = CatalogImport(
             filename="applied.xlsx",
             status="validated",
@@ -300,6 +409,8 @@ class CatalogImportApplier:
         await self._apply_units(validator)
         await self._apply_stages(validator)
         await self._apply_objects(validator)
+        if validator.is_simple_object_workbook:
+            await self._link_simple_objects_to_active_stages(validator)
         await self._apply_object_stages(validator)
         await self._apply_equipment(validator)
         await self._apply_work_types(validator)
@@ -437,6 +548,32 @@ class CatalogImportApplier:
                 )
             await self._repo.ensure_object_stage(obj.id, stage.id)
 
+    async def _link_simple_objects_to_active_stages(
+        self,
+        validator: CatalogImportValidator,
+    ) -> None:
+        """Make a two-column object import immediately usable in the form.
+
+        A simple workbook contains no object-stage matrix.  Its active objects
+        therefore inherit every active stage already maintained in the backend.
+        """
+        active_stages = [stage for stage in self._stages.values() if stage.active]
+        if not active_stages:
+            raise ValueError(
+                "Нельзя импортировать простой список объектов: "
+                "в базе нет активных этапов"
+            )
+
+        for row in validator.iter_rows("Objects"):
+            object_code = _normalize_text(row.get("code"))
+            if not object_code or not _normalize_bool(row.get("active")):
+                continue
+            obj = self._objects.get(object_code)
+            if obj is None:
+                raise ValueError(f"Объект '{object_code}' не найден после импорта")
+            for stage in active_stages:
+                await self._repo.ensure_object_stage(obj.id, stage.id)
+
     async def _apply_equipment(self, validator: CatalogImportValidator) -> None:
         for row in validator.iter_rows("Equipment"):
             code = _normalize_text(row.get("code"))
@@ -545,6 +682,10 @@ class CatalogImportApplier:
             obj = self._objects.get(object_code)
             if obj is None:
                 raise ValueError(f"Объект '{object_code}' не найден для ObjectMappings")
+
+            short_name = _normalize_text(row.get("short_name"))
+            if short_name:
+                obj.name = short_name
 
             contract_code = _normalize_text(row.get("contract_code"))
             if contract_code in _EMPTY_CONTRACT_MARKERS:

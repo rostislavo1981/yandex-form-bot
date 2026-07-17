@@ -123,12 +123,26 @@ describe('ReportPage object/contract selection', () => {
     await selectStage(user, 'Этап 1')
 
     await user.selectOptions(contractSelect, '21')
+    expect(screen.getByText('Договор два для объекта В')).toBeInTheDocument()
 
     await user.click(screen.getByText('Отправить'))
 
     await waitFor(() => expect(submitReportMock).toHaveBeenCalled())
     lastPayload = submitReportMock.mock.calls[0][0] as Record<string, unknown>
     expect(lastPayload.contract_id).toBe(21)
+  })
+
+  it('test_two_contracts_require_explicit_selection', async () => {
+    searchObjectsMock.mockResolvedValue({ items: [objTwoContracts], total: 1 })
+    const user = userEvent.setup()
+    render(<ReportPage />)
+
+    await selectObject(user, 'Объект В')
+    await selectStage(user, 'Этап 1')
+    await user.click(screen.getByText('Отправить'))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Выберите договор')
+    expect(submitReportMock).not.toHaveBeenCalled()
   })
 
   it('test_change_object_clears_stage_and_contract', async () => {
@@ -145,8 +159,7 @@ describe('ReportPage object/contract selection', () => {
     await user.click(within(objectSelect).getByLabelText('Очистить'))
     await selectObject(user, 'Объект Б')
 
-    const stageSelect = screen.getAllByTestId('search-select')[1]
-    expect(within(stageSelect).getByLabelText('Этап')).toHaveValue('')
+    expect(await screen.findByLabelText('Этап')).toHaveValue('')
     expect(screen.queryByLabelText('Договор / официальный объект')).not.toBeInTheDocument()
   })
 

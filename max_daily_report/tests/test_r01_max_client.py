@@ -187,3 +187,29 @@ async def test_subscribe_webhook_includes_group_lifecycle_events():
         "bot_started",
         "message_callback",
     }
+
+
+@pytest.mark.asyncio
+async def test_delete_webhook_subscription_uses_exact_url_query_param():
+    captured: dict = {}
+
+    async def handler(req: httpx.Request) -> httpx.Response:
+        captured["method"] = req.method
+        captured["path"] = req.url.path
+        captured["params"] = dict(req.url.params)
+        return httpx.Response(200, json={"success": True})
+
+    client = _mock_client(handler)
+    try:
+        result = await client.delete_webhook_subscription(
+            "https://old.example.com/api/webhook/max"
+        )
+    finally:
+        await client.close()
+
+    assert captured == {
+        "method": "DELETE",
+        "path": "/subscriptions",
+        "params": {"url": "https://old.example.com/api/webhook/max"},
+    }
+    assert result == {"success": True}
