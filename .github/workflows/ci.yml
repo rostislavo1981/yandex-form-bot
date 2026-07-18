@@ -110,7 +110,9 @@ jobs:
 
       - name: Build Docker image
         working-directory: max_daily_report
-        run: docker build -t mdr-test .
+        # --target base: последний stage в Dockerfile — frontend-test (node),
+        # без явной цели docker build берёт его и alembic/uvicorn отсутствуют.
+        run: docker build --target base -t mdr-test .
 
       - name: Health smoke
         working-directory: max_daily_report
