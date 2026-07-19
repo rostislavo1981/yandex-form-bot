@@ -95,6 +95,8 @@ async def create_object(
     obj = Object(
         code=data.code,
         name=data.name,
+        short_title=data.short_title,
+        full_title=data.full_title,
         execution_method=data.execution_method,
         default_contractor_id=data.default_contractor_id,
         active=data.active,
@@ -132,6 +134,8 @@ async def update_object(
             )
     obj.code = data.code
     obj.name = data.name
+    obj.short_title = data.short_title
+    obj.full_title = data.full_title
     obj.execution_method = data.execution_method
     obj.default_contractor_id = data.default_contractor_id
     obj.active = data.active

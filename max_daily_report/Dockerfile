@@ -38,8 +38,15 @@ RUN pip install --upgrade pip --disable-pip-version-check && pip install -e "."
 
 EXPOSE 8000
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=5s --start_period=10s --retries=3 \
     CMD curl -fsS http://127.0.0.1:8000/api/health 2>/dev/null || exit 1
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+# Stage 2.5: Production image (Python + built frontend)
+FROM base AS production
+
+COPY --from=frontend-builder /frontend/dist ./app/static
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 

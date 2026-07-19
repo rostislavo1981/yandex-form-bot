@@ -7,6 +7,8 @@ export interface AdminCatalogItem {
 }
 
 export interface AdminObject extends AdminCatalogItem {
+  short_title: string | null
+  full_title: string | null
   execution_method: 'own' | 'contractor' | null
   default_contractor_id: number | null
 }
