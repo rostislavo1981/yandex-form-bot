@@ -18,7 +18,8 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
-from app.models.catalogs import Object
+from app.models.catalogs import Contractor, Object, Stage
+from app.models.contracts import Contract
 from app.models.users import User
 
 
@@ -117,6 +118,14 @@ class DailyReport(Base):
     contractor_id: Mapped[int | None] = mapped_column(
         ForeignKey("contractors.id"), nullable=True
     )
+    contract_id: Mapped[int | None] = mapped_column(
+        ForeignKey("contracts.id"), nullable=True
+    )
+    object_name_snapshot: Mapped[str] = mapped_column(String(255), nullable=False)
+    contract_code_snapshot: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    contract_full_name_snapshot: Mapped[str | None] = mapped_column(
+        String(255), nullable=True
+    )
     comment: Mapped[str | None] = mapped_column(Text, nullable=True)
     staff_itr: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     staff_internal: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
@@ -150,6 +159,12 @@ class DailyReport(Base):
         cascade="all, delete-orphan",
         lazy="selectin",
     )
+    responsible_user: Mapped[User | None] = relationship(
+        foreign_keys=[responsible_user_id]
+    )
+    contractor: Mapped[Contractor | None] = relationship(foreign_keys=[contractor_id])
+    contract: Mapped[Contract | None] = relationship(foreign_keys=[contract_id])
+    stage: Mapped[Stage | None] = relationship(foreign_keys=[stage_id])
 
 
 class ReportEquipment(Base):

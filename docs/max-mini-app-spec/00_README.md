@@ -19,7 +19,7 @@
 | `06_frontend_spec.md` | Mini App UX, включая `/admin/catalogs` |
 | `07_project_structure.md` | Дерево нового кода |
 | `08_implementation_plan.md` | Исторический план завершённых I00–I22 |
-| `REMEDIATION_PLAN.md` | Завершённый план исправлений R00–R14 (R15 blocked) |
+| `REMEDIATION_PLAN.md` | План исправлений R00–R16; R15 на ручной приёмке |
 | `09_testing_plan.md` | Автоматическая и ручная приёмка |
 | `10_glossary.md` | Термины |
 | `11_two_tracks.md` | Запись о закрытии выбора трека |
@@ -38,6 +38,6 @@
 ## Статус
 
 - **R00–R14:** ✅ Выполнены
-- **R15:** 🚫 Заблокирован (требует реальный MAX токен/домен)
-- **Тесты:** 151 backend + 10 frontend
+- **R15:** 🟡 Phone stand автоматизирован; Quick Tunnel обновляется перед каждой ручной проверкой
+- **Тесты:** 188 backend + 16 frontend
 - **CI:** GitHub Actions настроен

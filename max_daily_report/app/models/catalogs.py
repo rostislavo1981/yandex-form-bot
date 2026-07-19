@@ -7,6 +7,7 @@ from sqlalchemy import (
     Enum,
     ForeignKey,
     String,
+    Text,
     UniqueConstraint,
     func,
 )
@@ -21,6 +22,9 @@ class Contractor(Base, CatalogMixin):
 
 class Object(Base, CatalogMixin):
     __tablename__ = "objects"
+
+    short_title: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    full_title: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     execution_method: Mapped[str | None] = mapped_column(
         Enum("own", "contractor", name="object_execution_method"),

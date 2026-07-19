@@ -27,6 +27,7 @@ export interface ReportFormData {
   object_id: number | null
   stage_id: number | null
   contractor_id: number | null
+  contract_id: number | null
   staff: StaffValues
   soil_export_m3: string | null
   equipment: EquipmentRow[]

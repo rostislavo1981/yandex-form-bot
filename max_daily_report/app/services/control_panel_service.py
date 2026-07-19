@@ -141,7 +141,7 @@ class ControlPanelService:
         )
         keyboard = [
             [
-                {"text": "📝 Заполнить отчёт", "callback_data": "open_report"},
+                {"type": "open_app", "text": "📝 Заполнить отчёт"},
             ],
             [
                 {"text": "📊 Статус сегодня", "callback_data": f"group_status:{group_id}"},
@@ -165,7 +165,7 @@ class ControlPanelService:
         )
         keyboard = [
             [
-                {"text": "📝 Заполнить отчёт", "callback_data": "open_report"},
+                {"type": "open_app", "text": "📝 Заполнить отчёт"},
             ],
             [
                 {"text": "📋 Мои отчёты", "callback_data": "my_reports"},

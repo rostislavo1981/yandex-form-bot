@@ -62,7 +62,7 @@ jobs:
         working-directory: max_daily_report
         env:
           DATABASE_URL: postgresql+asyncpg://mdr_user:mdr_pass@localhost:5432/mdr_test
-        run: alembic check || true
+        run: alembic check
 
   mvp-frontend:
     runs-on: ubuntu-latest
@@ -91,22 +91,44 @@ jobs:
   docker-build:
     runs-on: ubuntu-latest
     needs: [mvp-backend, mvp-frontend]
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: mdr_user
+          POSTGRES_PASSWORD: mdr_pass
+          POSTGRES_DB: mdr_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
 
       - name: Build Docker image
         working-directory: max_daily_report
-        run: docker build -t mdr-test .
+        # --target base: последний stage в Dockerfile — frontend-test (node),
+        # без явной цели docker build берёт его и alembic/uvicorn отсутствуют.
+        run: docker build --target base -t mdr-test .
 
       - name: Health smoke
         working-directory: max_daily_report
         run: |
+          docker run --rm --network host \
+            -e DATABASE_URL=postgresql+asyncpg://mdr_user:mdr_pass@localhost:5432/mdr_ci \
+            mdr-test alembic upgrade head
           docker run -d --name mdr-test-run \
+            --network host \
             -e APP_ENV=dev \
             -e DEBUG=true \
-            -e DATABASE_URL=postgresql+asyncpg://mdr_user:mdr_pass@db:5432/mdr_db \
-            -p 8000:8000 \
+            -e DATABASE_URL=postgresql+asyncpg://mdr_user:mdr_pass@localhost:5432/mdr_ci \
             mdr-test
-          sleep 3
-          curl -fsS http://127.0.0.1:8000/api/health || exit 1
+          for attempt in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:8000/api/ready; then break; fi
+            if [ "$attempt" = 20 ]; then docker logs mdr-test-run; exit 1; fi
+            sleep 1
+          done
           docker stop mdr-test-run || true

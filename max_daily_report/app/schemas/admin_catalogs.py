@@ -16,6 +16,8 @@ class CatalogItemRequest(BaseModel):
 
 
 class ObjectRequest(CatalogItemRequest):
+    short_title: str | None = None
+    full_title: str | None = None
     execution_method: Literal["own", "contractor"] | None = None
     default_contractor_id: int | None = None
 

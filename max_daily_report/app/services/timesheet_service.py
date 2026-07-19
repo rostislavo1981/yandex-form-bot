@@ -50,6 +50,8 @@ class TimesheetService:
         obligations = await self._load_obligations(object_id, date_from, date_to)
         days = self._date_range(date_from, date_to)
 
+        raw_reports = self._build_raw_reports(reports, obj)
+
         personnel_row = _Row(key=_RowKey("personnel", "Персонал", "", "чел"))
         equipment_rows: dict[_RowKey, _Row] = {}
         work_rows: dict[_RowKey, _Row] = {}
@@ -116,7 +118,48 @@ class TimesheetService:
             "day_status": {d.isoformat(): s for d, s in day_status.items()},
             "rows": rows,
             "missing_days": sorted(d.isoformat() for d in missing_days),
+            "raw_reports": raw_reports,
         }
+
+    @staticmethod
+    def _build_raw_reports(
+        reports: list[DailyReport], obj: Any
+    ) -> list[dict[str, Any]]:
+        raw_reports: list[dict[str, Any]] = []
+        for report in reports:
+            user_name = report.responsible_user.full_name if report.responsible_user else ""
+            stage = report.stage.code if report.stage else ""
+            contract_code = report.contract.code if report.contract else ""
+            contract_full_name = report.contract.full_name if report.contract else ""
+            for eq in report.equipment:
+                raw_reports.append({
+                    "date": report.report_date,
+                    "user": user_name,
+                    "object_code": obj.code,
+                    "object_name": obj.name,
+                    "stage": stage,
+                    "category": "equipment",
+                    "item": eq.equipment_name_snapshot,
+                    "unit": eq.unit_name_snapshot,
+                    "quantity": eq.quantity,
+                    "contract_code": contract_code,
+                    "contract_full_name": contract_full_name,
+                })
+            for w in report.works:
+                raw_reports.append({
+                    "date": report.report_date,
+                    "user": user_name,
+                    "object_code": obj.code,
+                    "object_name": obj.name,
+                    "stage": stage,
+                    "category": "work",
+                    "item": w.work_name_snapshot,
+                    "unit": w.unit_name_snapshot,
+                    "quantity": w.quantity,
+                    "contract_code": contract_code,
+                    "contract_full_name": contract_full_name,
+                })
+        return raw_reports
 
     async def _load_reports(
         self,
@@ -129,7 +172,13 @@ class TimesheetService:
             .where(DailyReport.object_id == object_id)
             .where(DailyReport.report_date >= date_from)
             .where(DailyReport.report_date <= date_to)
-            .options(selectinload(DailyReport.equipment), selectinload(DailyReport.works))
+            .options(
+                selectinload(DailyReport.equipment),
+                selectinload(DailyReport.works),
+                selectinload(DailyReport.contract),
+                selectinload(DailyReport.responsible_user),
+                selectinload(DailyReport.stage),
+            )
             .order_by(DailyReport.report_date)
         )
         return list(result.scalars().all())

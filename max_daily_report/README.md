@@ -26,6 +26,59 @@ In production every `/api/*` endpoint requires a valid `X-Init-Data` header
 `/api/worker/*` are internal and require `X-Internal-Token` equal to
 `INTERNAL_TOKEN` from `.env`.
 
+## Test from a phone through MAX
+
+This stand is isolated from the regular local database and exposes the Mini App
+through a temporary HTTPS Cloudflare Quick Tunnel.
+
+```bash
+cp .env.phone.example .env.phone
+# put MAX_BOT_TOKEN into .env.phone; never paste it into a chat or commit it
+./scripts/activate_phone_test.sh
+```
+
+The activation script builds the stand, runs migrations, waits for a generated
+`https://...trycloudflare.com` address, checks `/api/ready`, and registers that
+address as the only current webhook: subscriptions for previous tunnel URLs are
+removed automatically. Set the printed address as the Mini App URL in the MAX
+partner cabinet. A Quick Tunnel is ephemeral and may expire even while its
+container is still shown as running; rerun the activation script immediately
+before a phone test and use the newly printed URL. Seed demo catalogs only when
+you need them:
+
+```bash
+docker compose -f docker-compose.phone.yml run --rm api python -m app.seed
+```
+
+To import a real workbook without opening the admin screen, mount it read-only
+and run the same validator/applier used by the API:
+
+```bash
+docker compose -f docker-compose.phone.yml run --rm \
+  -v "/absolute/path/objects.xlsx:/imports/objects.xlsx:ro" \
+  api python -m app.import_catalog_file /imports/objects.xlsx
+```
+
+A simple workbook with the `краткое название` column imports short object names
+and their detailed contract names. Every imported active object is linked to
+all active stages already stored in PostgreSQL; the import is rejected when no
+active stage exists. The simple file has no MAX user IDs, so responsible users
+and object assignments must be added through the admin screen or the full
+`Users`/`Assignments` Excel template.
+
+Add the bot to the test group as an administrator. If `MAX_GROUP_ID` is set,
+rerun `python -m app.seed`; the seed then creates/activates that real group and
+disables the placeholder group. The quick-tunnel address remains valid only
+while `mdr-phone-tunnel` is running. Stop the stand without deleting its data:
+
+```bash
+docker compose -f docker-compose.phone.yml down
+```
+
+The Docker image installs the current Russian Trusted Root/Sub CA certificates
+published through the Госуслуги certificate page. MAX API currently uses this
+chain; TLS verification remains enabled.
+
 The dev placeholder user is `dev-user` (role `responsible` until you run
 `python -m app.seed`, which creates `dev-user` with the `admin` role). In dev
 mode open `/admin/catalogs` to manage catalogs.
@@ -70,7 +123,8 @@ open.
 
    - starts PostgreSQL and waits until it is healthy,
    - runs `alembic upgrade head` in a one-off container,
-   - starts `api`, `scheduler`, and `caddy`.
+   - starts `api`, separate outbox `worker`, `scheduler`, daily `backup`, and
+     `caddy`.
 
 4. Caddy terminates HTTPS and reverse-proxies everything to the API container.
    The API serves the built React SPA from `/app/static`.
@@ -82,7 +136,7 @@ open.
    ```
 
    The script subscribes `https://${DOMAIN}/api/webhook/max` with the configured
-   secret.
+   secret and removes subscriptions for obsolete URLs.
 
 6. Seed catalogs and assignments:
 
@@ -116,15 +170,18 @@ open.
 
    This tells MAX to deliver updates to `https://${DOMAIN}/api/webhook/max`.
 
-7. The bot will receive `bot_started`, `chat_member` and `message_callback`
-   events. Users are auto-created in the DB from MAX IDs; the admin can assign
-   them to objects via the control panel.
+7. The bot receives `bot_added`, `bot_removed`, `bot_started` and
+   `message_callback` events. Users are auto-created in the DB from MAX IDs;
+   the admin assigns them to objects on `/admin/catalogs` or through the full
+   Users/Assignments Excel workbook.
 8. Send `/start` or open the Mini App from the group control panel to begin.
 
 ### What each MAX event does
 
 - `bot_started` — creates/updates the user and sends a personal control panel.
-- `chat_member`/`new_chat_member` — adds the user to `group_members`.
+- `bot_added` — activates the group, records the initiating user and creates
+  the visible group control panel.
+- `bot_removed` — deactivates the group.
 - `message_callback` — handles buttons: open app, status, timesheet, Excel.
 - `open_app` (Mini App launch) — frontend sends `initData` in the
   `X-Init-Data` header; the backend validates it and resolves the user.
@@ -152,8 +209,15 @@ curl -X POST "https://${DOMAIN}/api/scheduler/morning-summary?group_id=1"
 make backup
 ```
 
-Creates `BACKUP_DIR/mdr_YYYY-MM-DD_HH-MM-SS.sql` using `pg_dump` from the
-running DB container.
+Creates `BACKUP_DIR/mdr_YYYY-MM-DD_HH-MM-SS.dump` using `pg_dump -Fc` from the
+running DB container. Production Compose also creates a backup every 24 hours
+and removes files older than `BACKUP_RETENTION_DAYS`.
+
+Verify that the newest dump can be restored into an isolated temporary DB:
+
+```bash
+make restore-smoke
+```
 
 ## Useful commands
 
@@ -162,4 +226,5 @@ make prod-down     # stop production stack
 make prod-logs     # tail logs
 make migrate       # run migrations only
 make backup        # manual backup
+make restore-smoke # verify newest backup in a temporary DB
 ```

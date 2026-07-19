@@ -112,6 +112,17 @@ def test_validate_rejects_non_xlsx() -> None:
     assert response.status_code == 400
 
 
+def test_validate_rejects_oversized_upload(monkeypatch) -> None:
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "max_catalog_upload_bytes", 4)
+    response = client.post(
+        "/api/catalogs/import/validate",
+        files={"file": ("catalogs.xlsx", b"12345", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+    )
+    assert response.status_code == 413
+
+
 def test_build_template_contains_all_sheets() -> None:
     buffer = build_template()
     from openpyxl import load_workbook

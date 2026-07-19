@@ -41,6 +41,7 @@ def test_webhook_bot_started(client: TestClient, monkeypatch):
     with patch("app.api.webhook.MAXClient") as MockClient:
         instance = MockClient.return_value
         instance.send_message = AsyncMock()
+        instance.answer_callback = AsyncMock()
         instance.close = AsyncMock()
         response = client.post(
             "/api/webhook/max",
@@ -55,6 +56,48 @@ def test_webhook_bot_started(client: TestClient, monkeypatch):
     instance.close.assert_awaited_once()
 
 
+def test_webhook_bot_added_activates_group_and_panel(
+    client: TestClient, monkeypatch, db_session
+):
+    from sqlalchemy import select
+
+    from app.models.users import MAXGroup
+
+    monkeypatch.setattr(settings, "max_webhook_secret", "secret")
+    event = {
+        "update_type": "bot_added",
+        "user": {"user_id": "max-admin-1", "name": "Group Admin"},
+        "chat_id": "group-777",
+        "is_channel": False,
+    }
+    with (
+        patch("app.api.webhook.MAXClient") as MockClient,
+        patch(
+            "app.api.webhook.ControlPanelService.ensure_group_control_panel",
+            new=AsyncMock(return_value={"status": "ok"}),
+        ) as ensure_panel,
+    ):
+        instance = MockClient.return_value
+        instance.get_chat = AsyncMock(
+            return_value={"chat_id": "group-777", "title": "Тестовая группа"}
+        )
+        instance.close = AsyncMock()
+        response = client.post(
+            "/api/webhook/max",
+            json=event,
+            headers={"x-max-bot-api-secret": "secret"},
+        )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "ok"
+    group = db_session.execute(
+        select(MAXGroup).where(MAXGroup.chat_id == "group-777")
+    ).scalar_one()
+    assert group.title == "Тестовая группа"
+    assert group.active is True
+    ensure_panel.assert_awaited_once_with(group.id)
+
+
 def test_webhook_callback_open_report(client: TestClient, monkeypatch):
     monkeypatch.setattr(settings, "max_webhook_secret", "secret")
     monkeypatch.setattr(settings, "max_bot_token", "bot123:token")
@@ -67,6 +110,7 @@ def test_webhook_callback_open_report(client: TestClient, monkeypatch):
     with patch("app.api.webhook.MAXClient") as MockClient:
         instance = MockClient.return_value
         instance.send_message = AsyncMock()
+        instance.answer_callback = AsyncMock()
         instance.close = AsyncMock()
         response = client.post(
             "/api/webhook/max",
@@ -76,7 +120,8 @@ def test_webhook_callback_open_report(client: TestClient, monkeypatch):
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
     instance.send_message.assert_awaited_once()
-    instance.close.assert_awaited_once()
+    instance.answer_callback.assert_awaited_once_with(callback_id="cb-1")
+    assert instance.close.await_count == 2
 
 
 def test_webhook_open_report_uses_max_link_without_token(client: TestClient, monkeypatch):
@@ -93,6 +138,7 @@ def test_webhook_open_report_uses_max_link_without_token(client: TestClient, mon
     with patch("app.api.webhook.MAXClient") as MockClient:
         instance = MockClient.return_value
         instance.send_message = AsyncMock()
+        instance.answer_callback = AsyncMock()
         instance.close = AsyncMock()
         response = client.post(
             "/api/webhook/max",
@@ -129,6 +175,7 @@ def test_webhook_my_reports_lists_user_reports(client: TestClient, monkeypatch, 
             responsible_user_id=user.id,
             object_id=obj.id,
             stage_id=stage.id,
+            object_name_snapshot="Вебхук-объект",
             staff_itr=1,
             idempotency_key="wh-key-1",
         )
@@ -144,6 +191,7 @@ def test_webhook_my_reports_lists_user_reports(client: TestClient, monkeypatch, 
     with patch("app.api.webhook.MAXClient") as MockClient:
         instance = MockClient.return_value
         instance.send_message = AsyncMock()
+        instance.answer_callback = AsyncMock()
         instance.close = AsyncMock()
         response = client.post(
             "/api/webhook/max",
@@ -169,6 +217,7 @@ def test_webhook_group_status_handled(client: TestClient, monkeypatch):
     with patch("app.api.webhook.MAXClient") as MockClient:
         instance = MockClient.return_value
         instance.send_message = AsyncMock()
+        instance.answer_callback = AsyncMock()
         instance.close = AsyncMock()
         response = client.post(
             "/api/webhook/max",
@@ -203,6 +252,7 @@ def test_webhook_help(client: TestClient, monkeypatch):
     with patch("app.api.webhook.MAXClient") as MockClient:
         instance = MockClient.return_value
         instance.send_message = AsyncMock()
+        instance.answer_callback = AsyncMock()
         instance.close = AsyncMock()
         response = client.post(
             "/api/webhook/max",
@@ -220,7 +270,7 @@ def test_webhook_group_missing(client: TestClient, monkeypatch, db_session):
     from datetime import date
 
     from app.models.catalogs import Object, ObjectStage, Stage
-    from app.models.reports import ResponsibleObjectAssignment
+    from app.models.reports import ReportObligation, ResponsibleObjectAssignment
     from app.models.users import User
 
     user = User(max_user_id="max-miss", full_name="Missing User", role="responsible")
@@ -229,11 +279,22 @@ def test_webhook_group_missing(client: TestClient, monkeypatch, db_session):
     db_session.add_all([user, obj, stage])
     db_session.flush()
     db_session.add(ObjectStage(object_id=obj.id, stage_id=stage.id))
-    db_session.add(ResponsibleObjectAssignment(
+    assignment = ResponsibleObjectAssignment(
         user_id=user.id, object_id=obj.id,
         active_from=date(2026, 1, 1), active_to=date(2026, 12, 31),
         schedule_type="daily",
-    ))
+    )
+    db_session.add(assignment)
+    db_session.flush()
+    db_session.add(
+        ReportObligation(
+            report_date=date.today(),
+            assignment_id=assignment.id,
+            user_id=user.id,
+            object_id=obj.id,
+            status="pending",
+        )
+    )
     db_session.commit()
 
     event = {
@@ -245,6 +306,7 @@ def test_webhook_group_missing(client: TestClient, monkeypatch, db_session):
     with patch("app.api.webhook.MAXClient") as MockClient:
         instance = MockClient.return_value
         instance.send_message = AsyncMock()
+        instance.answer_callback = AsyncMock()
         instance.close = AsyncMock()
         response = client.post(
             "/api/webhook/max",

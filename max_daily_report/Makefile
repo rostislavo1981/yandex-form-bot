@@ -1,4 +1,4 @@
-.PHONY: help install lint test db-up db-down api clean
+.PHONY: help install lint test db-up db-down api clean restore-smoke
 
 PY := /usr/bin/env -u PYTHONPATH ../.venv/bin/python
 PIP := /usr/bin/env -u PYTHONPATH ../.venv/bin/pip
@@ -48,6 +48,9 @@ migrate: ## Run Alembic migrations in production
 
 backup: ## Backup PostgreSQL to BACKUP_DIR
 	./scripts/backup.sh
+
+restore-smoke: ## Restore the newest backup into a temporary DB and remove it
+	./scripts/restore-smoke.sh
 
 frontend-check: ## Build frontend and run frontend tests
 	cd frontend && npm run build && npm run test

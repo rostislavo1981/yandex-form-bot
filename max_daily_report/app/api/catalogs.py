@@ -9,6 +9,8 @@ from app.schemas.catalogs import (
     CatalogItem,
     CatalogItemWithSymbol,
     CatalogListResponse,
+    ObjectItem,
+    ObjectListResponse,
     UnitListResponse,
 )
 from app.services.catalog_service import CatalogService
@@ -19,19 +21,19 @@ router = APIRouter(
 
 
 def _pagination(
-    q: str | None = Query(None, description="Поиск по названию, коду или псевдонимам"),
+    q: str | None = Query(None, description="Поиск по названию, коду, псевдонимам или договору"),
     limit: int = Query(20, ge=1, le=50),
     offset: int = Query(0, ge=0),
 ) -> dict:
     return {"q": q, "limit": limit, "offset": offset}
 
 
-@router.get("/objects", response_model=CatalogListResponse)
+@router.get("/objects", response_model=ObjectListResponse)
 async def search_objects(
     pagination: dict = Depends(_pagination),
     session: AsyncSession = Depends(get_session),
     user: User = Depends(require_user),
-) -> CatalogListResponse:
+) -> ObjectListResponse:
     service = CatalogService(session)
     restrict_user_id = user.id if user.role == "responsible" else None
     items, total = await service.search_objects(
@@ -40,8 +42,8 @@ async def search_objects(
         offset=pagination["offset"],
         restrict_user_id=restrict_user_id,
     )
-    return CatalogListResponse(
-        items=[CatalogItem.model_validate(obj) for obj in items], total=total
+    return ObjectListResponse(
+        items=[ObjectItem.model_validate(obj) for obj in items], total=total
     )
 
 

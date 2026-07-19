@@ -183,7 +183,9 @@ Response 409 — отчёт за эту дату по этому объекту 
 - `GET /api/catalogs/export.xlsx` — экспорт текущих активных справочников.
 - `POST /api/catalogs/import/validate` — загрузка и preview без изменений. Возвращает `{"valid": true|false, "create": {...}, "update": {...}, "deactivate": {...}, "errors": [...]}`.
 - `POST /api/catalogs/import/apply` — валидация + применение одной транзакцией. Возвращает `{"id": 1, "status": "applied", "preview": {...}, "errors": [...]}`.
-- `POST /api/catalogs/import/{import_id}/apply` — **зарезервировано; не реализовано** (вернёт 501). Стадийный staged apply по ранее сохранённому `catalog_imports.id` будет добавлен позже, если потребуется отдельная кнопка «подтвердить».
+- Staged apply по `import_id` не входит в MVP и не опубликован в API. Рабочий
+  сценарий — preview через `/import/validate`, затем загрузка того же файла в
+  `/import/apply`.
 
 Импорт напрямую без validate запрещён: `POST /api/catalogs/import/apply` сам выполняет валидацию и откатывает всё при ошибках.
 

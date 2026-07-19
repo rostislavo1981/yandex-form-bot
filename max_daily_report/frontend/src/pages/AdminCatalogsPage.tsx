@@ -175,6 +175,8 @@ export function AdminCatalogsPage() {
           const payload = {
             code: data.code || '',
             name: data.name || '',
+            short_title: data.short_title || null,
+            full_title: data.full_title || null,
             active: data.active ?? true,
             sort_order: data.sort_order ?? null,
             execution_method: data.execution_method || null,
@@ -502,7 +504,7 @@ export function AdminCatalogsPage() {
 function defaultForm(tab: CatalogTab): EditableRow {
   switch (tab) {
     case 'objects':
-      return { code: '', name: '', active: true, sort_order: null, execution_method: 'own', default_contractor_id: null }
+      return { code: '', name: '', short_title: null, full_title: null, active: true, sort_order: null, execution_method: 'own', default_contractor_id: null }
     case 'units':
       return { code: '', name: '', symbol: '', active: true, sort_order: null }
     case 'equipment':
@@ -697,6 +699,8 @@ function renderEditRow(
             </select>
           </td>
           <td>{selectField('default_contractor_id', 'Подрядчик...', contractorOptions, true)}</td>
+          <td>{textField('short_title', 'Короткий титул')}</td>
+          <td>{textField('full_title', 'Полный титул')}</td>
           <td>{boolField('active')}</td>
           <td>{textField('sort_order', 'Порядок', 'number')}</td>
         </>
