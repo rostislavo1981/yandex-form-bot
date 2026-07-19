@@ -30,6 +30,7 @@ export function Layout() {
         <Link to="/timesheet">Табель</Link>
         {isManager && <Link to="/status">Статус</Link>}
         {isManager && <Link to="/admin/catalogs">Справочники</Link>}
+        {!user && <Link to="/admin/login">Вход админа</Link>}
       </nav>
       <main className="app-main">
         <Outlet />

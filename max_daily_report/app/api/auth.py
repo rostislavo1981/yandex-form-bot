@@ -160,12 +160,31 @@ async def resolve_user_from_init_data(init_data: str | None) -> User:
 async def me(
     request: Request,
     x_init_data: str | None = Header(None, alias="X-Init-Data"),
+    x_admin_password: str | None = Header(None, alias="X-Admin-Password"),
 ) -> AuthResponse:
     """Return current user authenticated by MAX initData."""
     # In dev mode the dev-only middleware may have already attached a user.
     state_user = getattr(request.state, "user", None)
     if state_user is not None:
         return AuthResponse(user=UserResponse.model_validate(state_user))
+
+    # Admin password bypass for browser access without MAX.
+    if x_admin_password and settings.admin_password:
+        if hmac.compare_digest(x_admin_password, settings.admin_password):
+            async with AsyncSessionLocal() as session:
+                from sqlalchemy import select
+
+                admin_user = (
+                    await session.execute(
+                        select(User).where(User.role.in_(["admin", "manager"])).order_by(User.id)
+                    )
+                ).scalars().first()
+                if admin_user is None:
+                    admin_user = (
+                        await session.execute(select(User).order_by(User.id))
+                    ).scalars().first()
+                if admin_user is not None:
+                    return AuthResponse(user=UserResponse.model_validate(admin_user))
 
     if not x_init_data:
         raise HTTPException(

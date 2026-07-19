@@ -18,6 +18,13 @@ function getInitData(): string {
   return ''
 }
 
+function getAdminPassword(): string {
+  if (typeof window === 'undefined') {
+    return ''
+  }
+  return window.localStorage.getItem('admin_password') ?? ''
+}
+
 async function request<T>(
   method: string,
   path: string,
@@ -25,11 +32,15 @@ async function request<T>(
   idempotencyKey?: string,
 ): Promise<T> {
   const initData = getInitData()
+  const adminPassword = getAdminPassword()
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   }
   if (initData) {
     headers['X-Init-Data'] = initData
+  }
+  if (adminPassword) {
+    headers['X-Admin-Password'] = adminPassword
   }
   if (idempotencyKey) {
     headers['Idempotency-Key'] = idempotencyKey

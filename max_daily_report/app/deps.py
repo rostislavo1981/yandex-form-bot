@@ -18,19 +18,41 @@ async def get_session(session: AsyncSession = Depends(get_db)) -> AsyncSession:
 async def require_user(
     request: Request,
     x_init_data: str | None = Header(None, alias="X-Init-Data"),
+    x_admin_password: str | None = Header(None, alias="X-Admin-Password"),
 ) -> User:
     """Resolve the current user for any protected endpoint.
 
     Order: user already attached to request.state (dev middleware) →
+    admin password bypass (X-Admin-Password) →
     MAX initData from the X-Init-Data header. Stores the resolved user in
     request.state so endpoint-local helpers keep working.
     """
     user = getattr(request.state, "user", None)
     if user is None:
-        from app.api.auth import resolve_user_from_init_data
+        # Admin password bypass for browser access without MAX.
+        if x_admin_password and settings.admin_password:
+            if hmac.compare_digest(x_admin_password, settings.admin_password):
+                from app.database import AsyncSessionLocal
 
-        user = await resolve_user_from_init_data(x_init_data)
-        request.state.user = user
+                async with AsyncSessionLocal() as session:
+                    from sqlalchemy import select
+
+                    admin_user = (
+                        await session.execute(
+                            select(User).where(User.role.in_(["admin", "manager"])).order_by(User.id)
+                        )
+                    ).scalars().first()
+                    if admin_user is None:
+                        admin_user = (
+                            await session.execute(select(User).order_by(User.id))
+                        ).scalars().first()
+                    if admin_user is not None:
+                        user = admin_user
+        if user is None:
+            from app.api.auth import resolve_user_from_init_data
+
+            user = await resolve_user_from_init_data(x_init_data)
+            request.state.user = user
     if not user.active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { Layout } from './components/Layout.tsx'
 import { AdminCatalogsPage } from './pages/AdminCatalogsPage.tsx'
+import { AdminLoginPage } from './pages/AdminLoginPage.tsx'
 import { ReportPage } from './pages/ReportPage.tsx'
 import { ReportsPage } from './pages/ReportsPage.tsx'
 import { TimesheetPage } from './pages/TimesheetPage.tsx'
@@ -15,6 +16,7 @@ export default function App() {
         <Route path="/reports" element={<ReportsPage />} />
         <Route path="/timesheet" element={<TimesheetPage />} />
         <Route path="/status" element={<StatusPage />} />
+        <Route path="/admin/login" element={<AdminLoginPage />} />
         <Route path="/admin/catalogs" element={<AdminCatalogsPage />} />
       </Route>
     </Routes>

@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     # Empty value allows access only in dev mode.
     internal_token: str = ""
 
+    # Password for browser-based admin access (bypasses MAX auth).
+    # Empty = disabled. Set via ADMIN_PASSWORD in .env.
+    admin_password: str = ""
+
     host: str = "0.0.0.0"
     port: int = 8000
     log_level: str = "INFO"
