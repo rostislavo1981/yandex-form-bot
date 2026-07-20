@@ -48,6 +48,7 @@ async def require_user(
                         ).scalars().first()
                     if admin_user is not None:
                         user = admin_user
+                        request.state.user = user
         if user is None:
             from app.api.auth import resolve_user_from_init_data
 

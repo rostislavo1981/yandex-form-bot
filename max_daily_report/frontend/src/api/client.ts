@@ -36,11 +36,10 @@ async function request<T>(
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   }
-  if (initData) {
-    headers['X-Init-Data'] = initData
-  }
   if (adminPassword) {
     headers['X-Admin-Password'] = adminPassword
+  } else if (initData) {
+    headers['X-Init-Data'] = initData
   }
   if (idempotencyKey) {
     headers['Idempotency-Key'] = idempotencyKey
