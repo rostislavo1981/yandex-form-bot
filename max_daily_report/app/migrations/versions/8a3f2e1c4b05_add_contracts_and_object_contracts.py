@@ -1,7 +1,7 @@
 """add contracts and object_contracts
 
 Revision ID: 8a3f2e1c4b05
-Revises: b8f81b9a3983
+Revises: a3f4c5d6e7f8
 Create Date: 2026-07-15 19:46:02.000000
 
 """
@@ -12,7 +12,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "8a3f2e1c4b05"
-down_revision: str | Sequence[str] | None = "b8f81b9a3983"
+down_revision: str | Sequence[str] | None = "a3f4c5d6e7f8"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

@@ -229,7 +229,7 @@ async def _handle_my_reports(
     )
     rows = result.all()
     lines = [
-        f"✅ {report.report_date}: {obj.code} — {obj.name}" for report, obj in rows
+        f"✅ {report.report_date}: {obj.code} — {obj.short_title or obj.name}" for report, obj in rows
     ]
     text = (
         "Последние отчёты:\n" + "\n".join(lines)
@@ -430,7 +430,7 @@ async def max_webhook(
         obj = (await session.execute(select(Object).where(Object.id == report.object_id))).scalar_one()
         await _send(
             chat_id,
-            f"✅ Отчёт сохранён ({report.report_date}): {obj.code} — {obj.name}",
+            f"✅ Отчёт сохранён ({report.report_date}): {obj.code} — {obj.short_title or obj.name}",
             keyboard=_build_start_keyboard(),
         )
         return {"status": "ok"}

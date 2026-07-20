@@ -36,6 +36,8 @@ SHEET_COLUMNS = {
     "Objects": [
         "code",
         "name",
+        "short_title",
+        "full_title",
         "execution_method",
         "default_contractor_code",
         "active",
@@ -148,9 +150,6 @@ def _convert_simple_object_workbook(source: Workbook) -> Workbook | None:
             continue
         sort_order += 1
         object_code = _stable_import_code("OBJ", short_name)
-        objects_ws.append(
-            [object_code, short_name, "own", "", 1, sort_order]
-        )
 
         contract_values = [
             _normalize_text(source_sheet.cell(row_idx, col_idx).value)
@@ -160,6 +159,7 @@ def _convert_simple_object_workbook(source: Workbook) -> Workbook | None:
         if not contract_values:
             contract_values = [""]
 
+        primary_full_name = ""
         for contract_idx, full_name in enumerate(contract_values):
             marker = full_name.lower()
             if marker in _EMPTY_CONTRACT_MARKERS:
@@ -168,6 +168,8 @@ def _convert_simple_object_workbook(source: Workbook) -> Workbook | None:
             else:
                 contract_code = _stable_import_code("CTR", full_name)
                 normalized_full_name = full_name
+                if contract_idx == 0:
+                    primary_full_name = normalized_full_name
             mappings_ws.append(
                 [
                     object_code,
@@ -178,6 +180,19 @@ def _convert_simple_object_workbook(source: Workbook) -> Workbook | None:
                     1,
                 ]
             )
+
+        objects_ws.append(
+            [
+                object_code,
+                short_name,
+                short_name,
+                primary_full_name,
+                "own",
+                "",
+                1,
+                sort_order,
+            ]
+        )
     return converted
 
 
@@ -513,6 +528,8 @@ class CatalogImportApplier:
         for row in validator.iter_rows("Objects"):
             code = _normalize_text(row.get("code"))
             name = _normalize_text(row.get("name"))
+            short_title = _normalize_text(row.get("short_title")) or None
+            full_title = _normalize_text(row.get("full_title")) or None
             execution_method = _normalize_text(row.get("execution_method")) or None
             default_contractor_code = _normalize_text(row.get("default_contractor_code")) or None
             active = _normalize_bool(row.get("active"))
@@ -530,6 +547,8 @@ class CatalogImportApplier:
                 execution_method=execution_method,
                 default_contractor_id=default_contractor_id,
             )
+            obj.short_title = short_title
+            obj.full_title = full_title
             obj.active = active
             self._objects[code] = obj
 
@@ -686,6 +705,8 @@ class CatalogImportApplier:
             short_name = _normalize_text(row.get("short_name"))
             if short_name:
                 obj.name = short_name
+                if not obj.short_title:
+                    obj.short_title = short_name
 
             contract_code = _normalize_text(row.get("contract_code"))
             if contract_code in _EMPTY_CONTRACT_MARKERS:
@@ -694,6 +715,10 @@ class CatalogImportApplier:
             full_name = _normalize_text(row.get("full_name"))
             is_primary = _normalize_bool(row.get("primary"))
             active = _normalize_bool(row.get("active"))
+
+            # Primary contract → fill full_title on the object itself.
+            if is_primary and full_name and not obj.full_title:
+                obj.full_title = full_name
 
             contract = self._contracts.get(contract_code)
             if contract is None:
@@ -793,6 +818,8 @@ async def export_catalogs(session: AsyncSession) -> BytesIO:
             [
                 o.code,
                 o.name,
+                o.short_title or "",
+                o.full_title or "",
                 o.execution_method or "",
                 code_to_contractor.get(o.default_contractor_id, Contractor(code="")).code,
                 int(o.active),

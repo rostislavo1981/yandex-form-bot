@@ -108,7 +108,7 @@ class ReportService:
             stage_id=data.stage_id,
             contractor_id=data.contractor_id,
             contract_id=data.contract_id,
-            object_name_snapshot=obj.name,
+            object_name_snapshot=(obj.full_title or obj.short_title or obj.name) if obj else "",
             contract_code_snapshot=contract.code if contract else None,
             contract_full_name_snapshot=contract.full_name if contract else None,
             comment=data.comment,
