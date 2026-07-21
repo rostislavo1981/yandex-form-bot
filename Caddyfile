@@ -1,0 +1,40 @@
+# Caddy: автоматический HTTPS для Mini App.
+#
+# После старта Caddy сам получает сертификат Let's Encrypt для домена
+# из переменной DOMAIN (по умолчанию reports.projectrost.ru) и сам его
+# продлевает. Никаких ручных операций с сертификатами.
+#
+# Запросы:
+#   /api/*         → backend (FastAPI, порт 8001 внутри compose-сети)
+#   /webhook/*     → backend (для будущего webhook от MAX)
+#   /*             → статика Mini App (HTML/CSS/JS)
+{
+    email admin@projectrost.ru
+    # Логи в stdout, docker соберёт
+    log {
+        output stdout
+        format console
+    }
+}
+
+{$DOMAIN:reports.projectrost.ru} {
+    encode gzip
+
+    # API и webhook — в FastAPI
+    reverse_proxy /api/*        backend:8001
+    reverse_proxy /webhook/*    backend:8001
+
+    # Статика Mini App
+    handle {
+        root * /srv/miniapp
+        try_files {path} /index.html
+        file_server
+    }
+
+    # Заголовки для webview в мессенджерах
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options SAMEORIGIN
+        Referrer-Policy strict-origin-when-cross-origin
+    }
+}

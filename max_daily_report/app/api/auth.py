@@ -169,22 +169,25 @@ async def me(
         return AuthResponse(user=UserResponse.model_validate(state_user))
 
     # Admin password bypass for browser access without MAX.
-    if x_admin_password and settings.admin_password:
-        if hmac.compare_digest(x_admin_password, settings.admin_password):
-            async with AsyncSessionLocal() as session:
-                from sqlalchemy import select
+    if (
+        x_admin_password
+        and settings.admin_password
+        and hmac.compare_digest(x_admin_password, settings.admin_password)
+    ):
+        async with AsyncSessionLocal() as session:
+            from sqlalchemy import select
 
+            admin_user = (
+                await session.execute(
+                    select(User).where(User.role.in_(["admin", "manager"])).order_by(User.id)
+                )
+            ).scalars().first()
+            if admin_user is None:
                 admin_user = (
-                    await session.execute(
-                        select(User).where(User.role.in_(["admin", "manager"])).order_by(User.id)
-                    )
+                    await session.execute(select(User).order_by(User.id))
                 ).scalars().first()
-                if admin_user is None:
-                    admin_user = (
-                        await session.execute(select(User).order_by(User.id))
-                    ).scalars().first()
-                if admin_user is not None:
-                    return AuthResponse(user=UserResponse.model_validate(admin_user))
+            if admin_user is not None:
+                return AuthResponse(user=UserResponse.model_validate(admin_user))
 
     if not x_init_data:
         raise HTTPException(

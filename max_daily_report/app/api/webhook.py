@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC
 from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
@@ -149,7 +150,7 @@ async def _save_free_report(
     session: AsyncSession, user: User, text: str
 ) -> DailyReport | None:
     """Save a free-text message as a DailyReport for the user's assigned object."""
-    from datetime import date, datetime, timezone
+    from datetime import date, datetime
 
     # Find the user's active assignment (or first object for admin/manager)
     assignment = (
@@ -189,7 +190,7 @@ async def _save_free_report(
         stage_id=stage_id,
         comment=text[:4000],
         status="submitted",
-        idempotency_key=f"max-{user.id}-{int(datetime.now(timezone.utc).timestamp())}",
+        idempotency_key=f"max-{user.id}-{int(datetime.now(UTC).timestamp())}",
     )
     session.add(report)
     await session.commit()

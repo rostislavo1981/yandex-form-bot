@@ -30,25 +30,28 @@ async def require_user(
     user = getattr(request.state, "user", None)
     if user is None:
         # Admin password bypass for browser access without MAX.
-        if x_admin_password and settings.admin_password:
-            if hmac.compare_digest(x_admin_password, settings.admin_password):
-                from app.database import AsyncSessionLocal
+        if (
+            x_admin_password
+            and settings.admin_password
+            and hmac.compare_digest(x_admin_password, settings.admin_password)
+        ):
+            from app.database import AsyncSessionLocal
 
-                async with AsyncSessionLocal() as session:
-                    from sqlalchemy import select
+            async with AsyncSessionLocal() as session:
+                from sqlalchemy import select
 
+                admin_user = (
+                    await session.execute(
+                        select(User).where(User.role.in_(["admin", "manager"])).order_by(User.id)
+                    )
+                ).scalars().first()
+                if admin_user is None:
                     admin_user = (
-                        await session.execute(
-                            select(User).where(User.role.in_(["admin", "manager"])).order_by(User.id)
-                        )
+                        await session.execute(select(User).order_by(User.id))
                     ).scalars().first()
-                    if admin_user is None:
-                        admin_user = (
-                            await session.execute(select(User).order_by(User.id))
-                        ).scalars().first()
-                    if admin_user is not None:
-                        user = admin_user
-                        request.state.user = user
+                if admin_user is not None:
+                    user = admin_user
+                    request.state.user = user
         if user is None:
             from app.api.auth import resolve_user_from_init_data
 
